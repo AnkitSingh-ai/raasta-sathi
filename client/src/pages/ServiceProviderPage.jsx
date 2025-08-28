@@ -33,6 +33,7 @@ import toast from 'react-hot-toast';
 export function ServiceProviderPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('requests');
+  const [searchTerm, setSearchTerm] = useState(''); // FIX: Added state for search
   const [requests, setRequests] = useState([
     {
       id: '1',
@@ -72,19 +73,26 @@ export function ServiceProviderPage() {
     }
   ]);
 
+  // IMPROVEMENT: Moved stats inside to be dynamic
   const stats = [
     { label: 'Pending Requests', value: requests.filter(r => r.status === 'pending').length, color: 'yellow' },
     { label: 'Accepted Today', value: requests.filter(r => r.status === 'accepted').length, color: 'blue' },
     { label: 'Completed Today', value: requests.filter(r => r.status === 'completed').length, color: 'green' },
     { label: 'Average Rating', value: '4.8', color: 'purple' }
   ];
+  
+  // FIX: Map for Tailwind JIT compiler
+  const statColorMap = {
+    yellow: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
+    blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
+    green: { bg: 'bg-green-100', text: 'text-green-600' },
+    purple: { bg: 'bg-purple-100', text: 'text-purple-600' }
+  };
 
   const handleAcceptRequest = (requestId) => {
     setRequests(prev => 
       prev.map(req => 
-        req.id === requestId 
-          ? { ...req, status: 'accepted' }
-          : req
+        req.id === requestId ? { ...req, status: 'accepted' } : req
       )
     );
     toast.success('Request accepted! Citizen has been notified.');
@@ -93,9 +101,7 @@ export function ServiceProviderPage() {
   const handleCompleteRequest = (requestId) => {
     setRequests(prev => 
       prev.map(req => 
-        req.id === requestId 
-          ? { ...req, status: 'completed' }
-          : req
+        req.id === requestId ? { ...req, status: 'completed' } : req
       )
     );
     toast.success('Service completed successfully!');
@@ -103,11 +109,7 @@ export function ServiceProviderPage() {
 
   const handleRejectRequest = (requestId) => {
     setRequests(prev => 
-      prev.map(req => 
-        req.id === requestId 
-          ? { ...req, status: 'cancelled' }
-          : req
-      )
+      prev.filter(req => req.id !== requestId) // Or update status to 'cancelled'
     );
     toast.error('Request declined.');
   };
@@ -118,7 +120,7 @@ export function ServiceProviderPage() {
       medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       low: 'bg-green-100 text-green-800 border-green-200'
     };
-    return colors[urgency ] || 'bg-gray-100 text-gray-800';
+    return colors[urgency] || 'bg-gray-100 text-gray-800';
   };
 
   const getStatusColor = (status) => {
@@ -131,11 +133,21 @@ export function ServiceProviderPage() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const filteredRequests = requests.filter(req => 
-    req.citizenName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.serviceType.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // IMPROVEMENT: Simplified filtering logic
+  const requestsToDisplay = requests
+    .filter(req => {
+      const term = searchTerm.toLowerCase();
+      return term === '' ||
+        req.citizenName.toLowerCase().includes(term) ||
+        req.location.toLowerCase().includes(term) ||
+        req.serviceType.toLowerCase().includes(term);
+    })
+    .filter(req => {
+      if (activeTab === 'requests') return req.status === 'pending';
+      if (activeTab === 'accepted') return req.status === 'accepted';
+      if (activeTab === 'completed') return req.status === 'completed';
+      return true;
+    });
 
   return (
     <div className="min-h-screen bg-slate-50 pt-8">
@@ -157,7 +169,7 @@ export function ServiceProviderPage() {
                 <p className="text-sm font-medium text-slate-900">{user?.name}</p>
                 <p className="text-xs text-slate-500 capitalize">{user?.serviceType || 'Multi-Service'} Provider</p>
               </div>
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-lg">
                 🔧
               </div>
             </div>
@@ -179,8 +191,8 @@ export function ServiceProviderPage() {
                   <p className="text-sm font-medium text-slate-600">{stat.label}</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-xl bg-${stat.color}-100`}>
-                  <Bell className={`h-6 w-6 text-${stat.color}-600`} />
+                <div className={`p-3 rounded-xl ${statColorMap[stat.color]?.bg || 'bg-gray-100'}`}>
+                  <Bell className={`h-6 w-6 ${statColorMap[stat.color]?.text || 'text-gray-600'}`} />
                 </div>
               </div>
             </motion.div>
@@ -199,7 +211,6 @@ export function ServiceProviderPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold text-slate-900">Service Requests</h2>
               
-              {/* Search */}
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -211,23 +222,22 @@ export function ServiceProviderPage() {
                     className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                <button className="flex items-center space-x-2 px-3 py-2 bg-slate-100 rounded-lg text-sm hover:bg-slate-200">
+                <button className="flex items-center space-x-2 px-3 py-2 bg-slate-100 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200">
                   <Filter className="h-4 w-4" />
                   <span>Filter</span>
                 </button>
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="flex space-x-1 mt-4 bg-slate-100 rounded-lg p-1">
               {['requests', 'accepted', 'completed'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all capitalize ${
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all capitalize ${
                     activeTab === tab
                       ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                   }`}
                 >
                   {tab}
@@ -238,14 +248,7 @@ export function ServiceProviderPage() {
 
           {/* Requests List */}
           <div className="divide-y divide-slate-200">
-            {filteredRequests
-              .filter(req => {
-                if (activeTab === 'requests') return req.status === 'pending';
-                if (activeTab === 'accepted') return req.status === 'accepted';
-                if (activeTab === 'completed') return req.status === 'completed';
-                return true;
-              })
-              .map((request, index) => (
+            {requestsToDisplay.map((request, index) => (
                 <motion.div
                   key={request.id}
                   initial={{ opacity: 0, x: -20 }}
@@ -253,40 +256,28 @@ export function ServiceProviderPage() {
                   transition={{ duration: 0.3, delay: index * 0.1 }}
                   className="p-6 hover:bg-slate-50 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4 flex-1">
-                      <div className="p-2 bg-blue-100 rounded-lg">
+                  <div className="flex items-start justify-between flex-wrap gap-4">
+                    <div className="flex items-start space-x-4 flex-1 min-w-[300px]">
+                      <div className="p-2 bg-blue-100 rounded-lg mt-1">
                         <User className="h-5 w-5 text-blue-600" />
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-2">
+                        <div className="flex items-center flex-wrap gap-2 mb-2">
                           <h3 className="text-lg font-semibold text-slate-900">{request.citizenName}</h3>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getUrgencyColor(request.urgency)}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getUrgencyColor(request.urgency)}`}>
                             {request.urgency} priority
                           </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
                             {request.status}
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-600 mb-3">
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{request.location}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Phone className="h-4 w-4" />
-                            <span>{request.citizenPhone}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Clock className="h-4 w-4" />
-                            <span>{request.timestamp}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Navigation className="h-4 w-4" />
-                            <span>{request.distance} away</span>
-                          </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600 mb-3">
+                          <div className="flex items-center space-x-2"><MapPin className="h-4 w-4 flex-shrink-0" /> <span>{request.location}</span></div>
+                          <div className="flex items-center space-x-2"><Phone className="h-4 w-4 flex-shrink-0" /> <span>{request.citizenPhone}</span></div>
+                          <div className="flex items-center space-x-2"><Clock className="h-4 w-4 flex-shrink-0" /> <span>{request.timestamp}</span></div>
+                          <div className="flex items-center space-x-2"><Navigation className="h-4 w-4 flex-shrink-0" /> <span>{request.distance} away</span></div>
                         </div>
                         
                         <p className="text-slate-700 mb-3">{request.description}</p>
@@ -297,47 +288,36 @@ export function ServiceProviderPage() {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center space-x-2 ml-4">
+                    <div className="flex items-center space-x-2 ml-auto sm:ml-4 flex-shrink-0">
                       {request.status === 'pending' && (
                         <>
                           <button
                             onClick={() => handleAcceptRequest(request.id)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
                           >
                             <CheckCircle className="h-4 w-4" />
                             <span>Accept</span>
                           </button>
                           <button
                             onClick={() => handleRejectRequest(request.id)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-5 w-5" />
                           </button>
                         </>
                       )}
                       
                       {request.status === 'accepted' && (
-                        <>
-                          <button
-                            onClick={() => handleCompleteRequest(request.id)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Mark Complete
-                          </button>
-                          <a
-                            href={`tel:${request.citizenPhone}`}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                          >
-                            Call
-                          </a>
-                        </>
+                        <div className="flex items-center space-x-2">
+                           <a href={`tel:${request.citizenPhone}`} className="px-4 py-2 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">Call</a>
+                           <button onClick={() => handleCompleteRequest(request.id)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">Mark as Done</button>
+                        </div>
                       )}
 
                       {request.status === 'completed' && (
                         <div className="flex items-center space-x-2 text-green-600">
                           <CheckCircle className="h-5 w-5" />
-                          <span className="font-medium">Completed</span>
+                          <span className="font-medium text-sm">Completed</span>
                         </div>
                       )}
                     </div>
@@ -346,20 +326,12 @@ export function ServiceProviderPage() {
               ))}
           </div>
 
-          {/* Empty State */}
-          {filteredRequests.filter(req => {
-            if (activeTab === 'requests') return req.status === 'pending';
-            if (activeTab === 'accepted') return req.status === 'accepted';
-            if (activeTab === 'completed') return req.status === 'completed';
-            return true;
-          }).length === 0 && (
+          {requestsToDisplay.length === 0 && (
             <div className="p-12 text-center">
               <Bell className="h-12 w-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-slate-900 mb-2">No requests found</h3>
               <p className="text-slate-600">
-                {activeTab === 'requests' && 'No pending requests at the moment.'}
-                {activeTab === 'accepted' && 'No accepted requests to show.'}
-                {activeTab === 'completed' && 'No completed requests today.'}
+                There are no {activeTab} requests {searchTerm && 'matching your search'}.
               </p>
             </div>
           )}

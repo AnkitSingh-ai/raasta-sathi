@@ -2,16 +2,73 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/traffic-icon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- <link rel="icon" type="image/png" href="/traffic-icon.png" /> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Raasta Sathi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#2563eb" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
     <title>Raasta Sathi - Real-time Traffic Intelligence</title>
-    <meta name="description" content="Collaborative traffic reporting system for citizens, police, and authorities" />
+    <meta name="description" content="Collaborative traffic reporting system for citizens, police, and authorities. Report traffic incidents, view live maps, and contribute to safer roads." />
+    <meta name="keywords" content="traffic, reporting, road safety, traffic incidents, real-time, map, navigation" />
+    <meta name="author" content="Raasta Sathi Team" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://raastasathi.com/" />
+    <meta property="og:title" content="Raasta Sathi - Real-time Traffic Intelligence" />
+    <meta property="og:description" content="Collaborative traffic reporting system for citizens, police, and authorities." />
+    <!-- <meta property="og:image" content="/traffic-icon.png" /> -->
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://raastasathi.com/" />
+    <meta property="twitter:title" content="Raasta Sathi - Real-time Traffic Intelligence" />
+    <meta property="twitter:description" content="Collaborative traffic reporting system for citizens, time traffic intelligence" />
+    <!-- <meta property="twitter:image" content="/traffic-icon.png" /> -->
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Apple touch icons -->
+    <!-- <link rel="apple-touch-icon" href="/traffic-icon.png" /> -->
+    <!-- <link rel="apple-touch-icon" sizes="152x152" href="/traffic-icon.png" /> -->
+    <!-- <link rel="apple-touch-icon" sizes="180x180" href="/traffic-icon.png" /> -->
+    <!-- <link rel="apple-touch-icon" sizes="167x167" href="/traffic-icon.png" /> -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="map"></div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      // Initialize the map
+      var map = L.map('map').setView([28.6139, 77.2090], 13); // New Delhi
+
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      // Add a marker
+      L.marker([28.6139, 77.2090]).addTo(map)
+        .bindPopup('You are here!')
+        .openPopup();
+    </script>
+    
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

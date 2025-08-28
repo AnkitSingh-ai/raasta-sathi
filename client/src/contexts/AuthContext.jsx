@@ -141,6 +141,17 @@ const [user, setUser] = useState(null);
     }
   };
 
+  const updateProfilePhoto = async (photoFile) => {
+    try {
+      const response = await apiService.updateProfilePhoto(photoFile);
+      setUser(response.data.user);
+      toast.success('Profile photo updated successfully!');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update profile photo');
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -150,6 +161,7 @@ const [user, setUser] = useState(null);
       loading,
       updateUserLocation,
       updateProfile,
+      updateProfilePhoto,
       register
     }}>
       {children}

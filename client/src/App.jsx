@@ -12,7 +12,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MapPage } from './pages/MapPage';
 import { ReportPage } from './pages/ReportPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { LeaderboardPage } from './pages/LeaderboardPage';
+
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
@@ -21,6 +21,8 @@ import { ServiceProviderPage } from './pages/ServiceProviderPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { PathScanPage } from './pages/PathScanPage';
 import { SearchPage } from './pages/SearchPage';
+import { MyReportsPage } from './pages/MyReportPage';
+ 
 
 function App() {
   return (
@@ -35,7 +37,7 @@ function App() {
               <Route path="/*" element={
                 <>
                   <Header />
-                  <main>
+                  <main className="w-full">
                     <Routes>
                       <Route path="/" element={<HomePage />} />
                       <Route path="/map" element={<MapPage />} />
@@ -43,6 +45,11 @@ function App() {
                       <Route path="/report" element={
                         <ProtectedRoute>
                           <ReportPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/my-reports" element={
+                        <ProtectedRoute>
+                          <MyReportsPage />
                         </ProtectedRoute>
                       } />
                       <Route path="/helper" element={
@@ -55,6 +62,7 @@ function App() {
                           <ProfilePage />
                         </ProtectedRoute>
                       } />
+
                       <Route path="/path-scan" element={
                         <ProtectedRoute>
                           <PathScanPage />
@@ -75,6 +83,7 @@ function App() {
                           <ServiceProviderPage />
                         </ProtectedRoute>
                       } />
+                      
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </main>
@@ -85,24 +94,22 @@ function App() {
             <Toaster 
               position="top-right"
               toastOptions={{
-                duration: 4000,
+                duration: 2000,
                 style: {
                   background: '#1e293b',
                   color: '#f8fafc',
                   borderRadius: '12px',
-                  padding: '16px',
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                  fontSize: '14px',
+                  maxWidth: '400px',
                 },
                 success: {
-                  iconTheme: {
-                    primary: '#10B981',
-                    secondary: '#ffffff',
+                  style: {
+                    background: '#059669',
                   },
                 },
                 error: {
-                  iconTheme: {
-                    primary: '#EF4444',
-                    secondary: '#ffffff',
+                  style: {
+                    background: '#dc2626',
                   },
                 },
               }}

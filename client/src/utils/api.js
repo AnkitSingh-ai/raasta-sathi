@@ -1,18 +1,14 @@
 import axios from 'axios';
 
-// API base configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
-// Create axios instance with default configuration
+console.log('API Base URL:', API_BASE_URL);
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000, // 10 seconds timeout
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
 });
 
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('raasta_sathi_token');
@@ -21,616 +17,420 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => {
-    return response.data;
-  },
+  (response) => response.data,
   (error) => {
-    // Handle network errors
     if (!error.response) {
       console.error('Network Error:', error.message);
       throw new Error('Network error - please check your connection');
     }
 
-    // Handle HTTP errors
     const { status, data } = error.response;
     
-    // Handle authentication errors
+    if (status === 429) {
+      console.error('Rate limit exceeded:', data);
+      throw new Error('Too many requests. Please wait a moment and try again.');
+    }
+    
     if (status === 401) {
       localStorage.removeItem('raasta_sathi_token');
       window.location.href = '/login';
       throw new Error('Session expired - please login again');
     }
 
-    // Handle other errors
     const errorMessage = data?.message || error.message || 'An error occurred';
     console.error('API Error:', errorMessage);
     throw new Error(errorMessage);
   }
 );
 
-// API service class
 class ApiService {
-  // Set auth token
   setToken(token) {
-    if (token) {
-      localStorage.setItem('raasta_sathi_token', token);
-    } else {
-      localStorage.removeItem('raasta_sathi_token');
-    }
+    token ? localStorage.setItem('raasta_sathi_token', token) : localStorage.removeItem('raasta_sathi_token');
   }
 
-  // Remove auth token
   removeToken() {
     localStorage.removeItem('raasta_sathi_token');
   }
 
-  // Get current token
   getToken() {
     return localStorage.getItem('raasta_sathi_token');
   }
 
-  // Check if user is authenticated
+  getImageUrl(imagePath) {
+    if (!imagePath) return null;
+    
+    // If it's already a full URL (Cloudinary or other), return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    // If it's a local path (legacy), construct full URL
+    if (imagePath.startsWith('/uploads/')) {
+      const baseUrl = API_BASE_URL.replace('/api', '');
+      return `${baseUrl}${imagePath}`;
+    }
+    
+    // For Cloudinary paths, they should already be full URLs
+    return imagePath;
+  }
+
   isAuthenticated() {
     return !!this.getToken();
   }
 
-  // ==================== AUTH ENDPOINTS ====================
-
-  // Register new user
   async register(userData) {
-    try {
-      const response = await apiClient.post('/auth/register', userData);
-      if (response.token) {
-        this.setToken(response.token);
-      }
-      return response;
-    } catch (error) {
-      console.error('Registration failed:', error.message);
-      throw error;
-    }
+    const response = await apiClient.post('/auth/register', userData);
+    if (response.token) this.setToken(response.token);
+    return response;
   }
 
-  // Login user
   async login(credentials) {
-    try {
-      const response = await apiClient.post('/auth/login', credentials);
-      if (response.token) {
-        this.setToken(response.token);
-      }
-      return response;
-    } catch (error) {
-      console.error('Login failed:', error.message);
-      throw error;
-    }
+    const response = await apiClient.post('/auth/login', credentials);
+    if (response.token) this.setToken(response.token);
+    return response;
   }
 
-  // Logout user
+  async verifyEmail(email, otp, tempId) {
+    return await apiClient.post('/auth/verify-email', { email, otp, tempId });
+  }
+
+  async resendVerification(email, tempId) {
+    return await apiClient.post('/auth/resend-verification', { email, tempId });
+  }
+
+  async forgotPassword(email) {
+    return await apiClient.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(email, otp, newPassword) {
+    return await apiClient.post('/auth/reset-password', { email, otp, newPassword });
+  }
+
   async logout() {
-    try {
-      this.removeToken();
-      return { status: 'success', message: 'Logged out successfully' };
-    } catch (error) {
-      console.error('Logout failed:', error.message);
-      throw error;
-    }
+    this.removeToken();
+    return { status: 'success', message: 'Logged out successfully' };
   }
 
-  // Get current user profile
   async getCurrentUser() {
-    try {
-      return await apiClient.get('/auth/me');
-    } catch (error) {
-      console.error('Get current user failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/auth/me');
   }
 
-  // Update user profile
   async updateProfile(userData) {
-    try {
-      return await apiClient.put('/auth/updatedetails', userData);
-    } catch (error) {
-      console.error('Update profile failed:', error.message);
-      throw error;
-    }
+    return await apiClient.put('/auth/updatedetails', userData);
   }
 
-  // Update password
   async updatePassword(passwordData) {
+    return await apiClient.put('/auth/updatepassword', passwordData);
+  }
+
+  async getReports(retries = 3) {
     try {
-      return await apiClient.put('/auth/updatepassword', passwordData);
+      const response = await apiClient.get('/reports');
+      return response.data ? response.data.reports : response;
     } catch (error) {
-      console.error('Update password failed:', error.message);
+      // If it's a database not ready error and we have retries left, wait and retry
+      if (error.response?.status === 503 && error.response?.data?.code === 'DATABASE_NOT_READY' && retries > 0) {
+        console.log(`Database not ready, retrying in 1 second... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return this.getReports(retries - 1);
+      }
       throw error;
     }
   }
 
-  // ==================== REPORTS ENDPOINTS ====================
-
-// Get all reports with optional filters
-async getReports() {
-  try {
-    const response = await apiClient.get('/reports');
-    return response.data ? response.data.reports : response;
-  } catch (error) {
-    console.error('Get reports failed:', error.message);
-    throw error;
+  async getAllUsers() {
+    return await apiClient.get('/users');
   }
-}
 
-  // Get single report by ID
+  async getAllReports(retries = 3) {
+    try {
+      const response = await apiClient.get('/reports', { params: { limit: 1000 } });
+      return response.data ? response.data.reports : response;
+    } catch (error) {
+      // If it's a database not ready error and we have retries left, wait and retry
+      if (error.response?.status === 503 && error.response?.data?.code === 'DATABASE_NOT_READY' && retries > 0) {
+        console.log(`Database not ready, retrying in 1 second... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return this.getAllReports(retries - 1);
+      }
+      throw error;
+    }
+  }
+
   async getReport(id) {
+    return await apiClient.get(`/reports/${id}`);
+  }
+
+  async getMyReports(params = {}) {
     try {
-      return await apiClient.get(`/reports/${id}`);
+      return await apiClient.get('/reports/my-reports', { params });
     } catch (error) {
-      console.error('Get report failed:', error.message);
+      console.error('Get my reports failed:', error.message);
       throw error;
     }
   }
 
-  // Create new report
-  async createReport(reportData) {
-    try {
-      return await apiClient.post('/reports', reportData);
-    } catch (error) {
-      console.error('Create report failed:', error.message);
-      throw error;
+  async createReport(reportData, retries = 2) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await apiClient.post('/reports', reportData, {
+          timeout: 60000, // Increased timeout to 60 seconds for file uploads
+          onUploadProgress: (e) => {
+            const percent = Math.round((e.loaded * 100) / e.total);
+            console.log(`Upload attempt ${attempt}: ${percent}%`);
+          },
+        });
+        return response;
+      } catch (error) {
+        console.error(`Attempt ${attempt} failed:`, error);
+        
+        if (attempt === retries) {
+          // Last attempt failed, throw the error
+          if (error.code === 'ECONNABORTED') {
+            console.error('Request timeout:', error.message);
+            throw new Error('Request timed out. Please check your connection and try again.');
+          } else if (error.response) {
+            console.error('Server error:', error.response.data);
+            throw new Error(error.response.data?.message || 'Server error occurred');
+          } else if (error.request) {
+            console.error('No response:', error.request);
+            throw new Error('Network error - please check your connection');
+          } else {
+            console.error('Request error:', error.message);
+            throw new Error(error.message || 'An error occurred');
+          }
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
     }
   }
 
-  // Update existing report
   async updateReport(id, reportData) {
-    try {
-      return await apiClient.put(`/reports/${id}`, reportData);
-    } catch (error) {
-      console.error('Update report failed:', error.message);
-      throw error;
-    }
+    return await apiClient.put(`/reports/${id}`, reportData);
   }
 
-  // Delete report
   async deleteReport(id) {
-    try {
-      return await apiClient.delete(`/reports/${id}`);
-    } catch (error) {
-      console.error('Delete report failed:', error.message);
-      throw error;
-    }
+    return await apiClient.delete(`/reports/${id}`);
   }
 
-  // Like/unlike report
   async likeReport(id) {
-    try {
-      return await apiClient.post(`/reports/${id}/like`);
-    } catch (error) {
-      console.error('Like report failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/reports/${id}/like`);
   }
 
-  // Add comment to report
   async addComment(id, comment) {
-    try {
-      return await apiClient.post(`/reports/${id}/comments`, { text: comment });
-    } catch (error) {
-      console.error('Add comment failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/reports/${id}/comments`, { text: comment });
   }
 
-  // Vote on report (up/down)
+  async getComments(id) {
+    return await apiClient.get(`/reports/${id}/comments`);
+  }
+
+  // Enhanced comment methods
+  async likeComment(reportId, commentId) {
+    return await apiClient.post(`/reports/${reportId}/comments/${commentId}/like`);
+  }
+
+  async dislikeComment(reportId, commentId) {
+    return await apiClient.post(`/reports/${reportId}/comments/${commentId}/dislike`);
+  }
+
+  async removeCommentReaction(reportId, commentId) {
+    return await apiClient.delete(`/reports/${reportId}/comments/${commentId}/reaction`);
+  }
+
+  async addReply(reportId, commentId, text) {
+    return await apiClient.post(`/reports/${reportId}/comments/${commentId}/replies`, { text });
+  }
+
+  async likeReply(reportId, commentId, replyId) {
+    return await apiClient.post(`/reports/${reportId}/comments/${commentId}/replies/${replyId}/like`);
+  }
+
+  async dislikeReply(reportId, commentId, replyId) {
+    return await apiClient.post(`/reports/${reportId}/comments/${commentId}/replies/${replyId}/dislike`);
+  }
+
+  async removeReplyReaction(reportId, commentId, replyId) {
+    return await apiClient.delete(`/reports/${reportId}/comments/${commentId}/replies/${replyId}/reaction`);
+  }
+
+  async editComment(reportId, commentId, text) {
+    return await apiClient.put(`/reports/${reportId}/comments/${commentId}`, { text });
+  }
+
+  async deleteComment(reportId, commentId) {
+    return await apiClient.delete(`/reports/${reportId}/comments/${commentId}`);
+  }
+
+  async deleteReply(reportId, commentId, replyId) {
+    return await apiClient.delete(`/reports/${reportId}/comments/${commentId}/replies/${replyId}`);
+  }
+
   async voteReport(id, voteType) {
-    try {
-      return await apiClient.post(`/reports/${id}/vote`, { voteType });
-    } catch (error) {
-      console.error('Vote report failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/reports/${id}/vote`, { voteType });
   }
 
-  // Verify report (authority only)
+  async voteOnPoll(id, choice) {
+    return await apiClient.post(`/reports/${id}/vote`, { choice });
+  }
+
+  async updateReportStatus(id, status, reason) {
+    return await apiClient.put(`/reports/${id}/status`, { status, reason });
+  }
+
   async verifyReport(id) {
-    try {
-      return await apiClient.post(`/reports/${id}/verify`);
-    } catch (error) {
-      console.error('Verify report failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/reports/${id}/verify`);
   }
 
-  // ==================== SERVICE REQUESTS ENDPOINTS ====================
-
-  // Get service requests
   async getServiceRequests(params = {}) {
-    try {
-      return await apiClient.get('/services', { params });
-    } catch (error) {
-      console.error('Get service requests failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/services', { params });
   }
 
-  // Get user's service requests
   async getMyServiceRequests() {
-    try {
-      return await apiClient.get('/services/my-requests');
-    } catch (error) {
-      console.error('Get my service requests failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/services/my-requests');
   }
 
-  // Get provider's service requests
   async getProviderRequests(status = 'all') {
-    try {
-      return await apiClient.get('/services/provider-requests', { 
-        params: { status } 
-      });
-    } catch (error) {
-      console.error('Get provider requests failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/services/provider-requests', { params: { status } });
   }
 
-  // Create new service request
   async createServiceRequest(requestData) {
-    try {
-      return await apiClient.post('/services', requestData);
-    } catch (error) {
-      console.error('Create service request failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post('/services', requestData);
   }
 
-  // Accept service request
   async acceptServiceRequest(id, estimatedArrival) {
-    try {
-      return await apiClient.post(`/services/${id}/accept`, { estimatedArrival });
-    } catch (error) {
-      console.error('Accept service request failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/services/${id}/accept`, { estimatedArrival });
   }
 
-  // Start service
   async startService(id) {
-    try {
-      return await apiClient.post(`/services/${id}/start`);
-    } catch (error) {
-      console.error('Start service failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/services/${id}/start`);
   }
 
-  // Complete service
   async completeService(id, finalPrice) {
-    try {
-      return await apiClient.post(`/services/${id}/complete`, { finalPrice });
-    } catch (error) {
-      console.error('Complete service failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/services/${id}/complete`, { finalPrice });
   }
 
-  // Cancel service request
   async cancelServiceRequest(id, reason) {
-    try {
-      return await apiClient.post(`/services/${id}/cancel`, { reason });
-    } catch (error) {
-      console.error('Cancel service request failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/services/${id}/cancel`, { reason });
   }
 
-  // Add message to service request
   async addServiceMessage(id, message, messageType = 'text') {
-    try {
-      return await apiClient.post(`/services/${id}/messages`, { 
-        message, 
-        messageType 
-      });
-    } catch (error) {
-      console.error('Add service message failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/services/${id}/messages`, { message, messageType });
   }
 
-  // Rate service
   async rateService(id, rating, feedback) {
-    try {
-      return await apiClient.post(`/services/${id}/rate`, { rating, feedback });
-    } catch (error) {
-      console.error('Rate service failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post(`/services/${id}/rate`, { rating, feedback });
   }
 
-  // ==================== USERS ENDPOINTS ====================
-
-  // Get nearby service providers
   async getNearbyProviders(lat, lng, serviceType, radius = 15) {
-    try {
-      return await apiClient.get('/users/providers/nearby', {
-        params: { lat, lng, serviceType, radius }
-      });
-    } catch (error) {
-      console.error('Get nearby providers failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/users/providers/nearby', {
+      params: { lat, lng, serviceType, radius },
+    });
   }
 
-  // Update notification settings
   async updateNotificationSettings(settings) {
-    try {
-      return await apiClient.put('/users/notifications', settings);
-    } catch (error) {
-      console.error('Update notification settings failed:', error.message);
-      throw error;
-    }
+    return await apiClient.put('/users/notifications', settings);
   }
 
-  // Update service provider availability
   async updateAvailability(isAvailable) {
-    try {
-      return await apiClient.put('/users/availability', { isAvailable });
-    } catch (error) {
-      console.error('Update availability failed:', error.message);
-      throw error;
-    }
+    return await apiClient.put('/users/availability', { isAvailable });
   }
 
-  // ==================== LEADERBOARD ENDPOINTS ====================
-
-  // Get leaderboard
   async getLeaderboard(timeframe = 'all', limit = 50) {
-    try {
-      return await apiClient.get('/leaderboard', {
-        params: { timeframe, limit }
-      });
-    } catch (error) {
-      console.error('Get leaderboard failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/leaderboard', { params: { timeframe, limit } });
   }
 
-  // Get user statistics
   async getUserStats(userId) {
-    try {
-      return await apiClient.get(`/leaderboard/stats/${userId}`);
-    } catch (error) {
-      console.error('Get user stats failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get(`/leaderboard/stats/${userId}`);
   }
 
-  // Get available achievements
   async getAchievements() {
-    try {
-      return await apiClient.get('/leaderboard/achievements');
-    } catch (error) {
-      console.error('Get achievements failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/leaderboard/achievements');
   }
 
-  // ==================== NOTIFICATIONS ENDPOINTS ====================
-
-  // Get user notifications
   async getNotifications(page = 1, limit = 20, unreadOnly = false) {
-    try {
-      return await apiClient.get('/notifications', {
-        params: { page, limit, unreadOnly }
-      });
-    } catch (error) {
-      console.error('Get notifications failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/notifications', {
+      params: { page, limit, unreadOnly },
+    });
   }
 
-  // Mark notification as read
   async markNotificationAsRead(id) {
-    try {
-      return await apiClient.put(`/notifications/${id}/read`);
-    } catch (error) {
-      console.error('Mark notification as read failed:', error.message);
-      throw error;
-    }
+    return await apiClient.put(`/notifications/${id}/read`);
   }
 
-  // Mark all notifications as read
   async markAllNotificationsAsRead() {
-    try {
-      return await apiClient.put('/notifications/read-all');
-    } catch (error) {
-      console.error('Mark all notifications as read failed:', error.message);
-      throw error;
-    }
+    return await apiClient.put('/notifications/read-all');
   }
 
-  // Delete notification
   async deleteNotification(id) {
-    try {
-      return await apiClient.delete(`/notifications/${id}`);
-    } catch (error) {
-      console.error('Delete notification failed:', error.message);
-      throw error;
-    }
+    return await apiClient.delete(`/notifications/${id}`);
   }
 
-  // ==================== UTILITY ENDPOINTS ====================
-
-  // Health check
   async healthCheck() {
-    try {
-      return await apiClient.get('/health');
-    } catch (error) {
-      console.error('Health check failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/health');
   }
 
-  // Test API connectivity
   async testConnection() {
     try {
-      return await apiClient.get('/test');
+      const response = await apiClient.get('/test', { timeout: 10000 });
+      return response;
     } catch (error) {
-      console.error('Test connection failed:', error.message);
-      throw error;
+      console.error('Connection test failed:', error);
+      throw new Error('Cannot connect to server. Please check your internet connection.');
     }
   }
 
-  // ==================== FILE UPLOAD ENDPOINTS ====================
-
-  // Upload file (for reports, profile pictures, etc.)
   async uploadFile(file, type = 'report') {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', type);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
 
-      return await apiClient.post('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    } catch (error) {
-      console.error('File upload failed:', error.message);
-      throw error;
-    }
+    return await apiClient.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   }
 
-  // ==================== SEARCH ENDPOINTS ====================
-
-  // Search reports and incidents
   async searchReports(query, filters = {}) {
-    try {
-      return await apiClient.get('/search/reports', {
-        params: { q: query, ...filters }
-      });
-    } catch (error) {
-      console.error('Search reports failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/search/reports', { params: { q: query, ...filters } });
   }
 
-  // Search users
   async searchUsers(query, role = null) {
-    try {
-      return await apiClient.get('/search/users', {
-        params: { q: query, role }
-      });
-    } catch (error) {
-      console.error('Search users failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/search/users', { params: { q: query, role } });
   }
 
-  // ==================== ANALYTICS ENDPOINTS ====================
-
-  // Get traffic analytics
   async getTrafficAnalytics(timeframe = 'month') {
-    try {
-      return await apiClient.get('/analytics/traffic', {
-        params: { timeframe }
-      });
-    } catch (error) {
-      console.error('Get traffic analytics failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get('/analytics/traffic', { params: { timeframe } });
   }
 
-  // Get user analytics
   async getUserAnalytics(userId, timeframe = 'month') {
-    try {
-      return await apiClient.get(`/analytics/users/${userId}`, {
-        params: { timeframe }
-      });
-    } catch (error) {
-      console.error('Get user analytics failed:', error.message);
-      throw error;
-    }
+    return await apiClient.get(`/analytics/users/${userId}`, { params: { timeframe } });
   }
 }
 
-// Create and export singleton instance
 const apiService = new ApiService();
 
-// Export both the service instance and the axios client
 export default apiService;
 export { apiClient };
 
-// Export individual methods for convenience
 export const {
-  // Auth
-  register,
-  login,
-  logout,
-  getCurrentUser,
-  updateProfile,
-  updatePassword,
-  
-  // Reports
-  getReports,
-  getReport,
-  createReport,
-  updateReport,
-  deleteReport,
-  likeReport,
-  addComment,
-  voteReport,
-  verifyReport,
-  
-  // Services
-  getServiceRequests,
-  getMyServiceRequests,
-  getProviderRequests,
-  createServiceRequest,
-  acceptServiceRequest,
-  startService,
-  completeService,
-  cancelServiceRequest,
-  addServiceMessage,
-  rateService,
-  
-  // Users
-  getNearbyProviders,
-  updateNotificationSettings,
-  updateAvailability,
-  
-  // Leaderboard
-  getLeaderboard,
-  getUserStats,
-  getAchievements,
-  
-  // Notifications
-  getNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
-  
-  // Utility
-  healthCheck,
-  testConnection,
-  uploadFile,
-  
-  // Search
-  searchReports,
-  searchUsers,
-  
-  // Analytics
-  getTrafficAnalytics,
-  getUserAnalytics,
-  
-  // Token management
-  setToken,
-  removeToken,
-  getToken,
-  isAuthenticated
+  register, login, logout, getCurrentUser, updateProfile, updatePassword,
+  verifyEmail, resendVerification, forgotPassword, resetPassword,
+  getReports, getAllReports, getReport, createReport, updateReport, deleteReport,
+  likeReport, addComment, getComments, likeComment, dislikeComment, removeCommentReaction,
+  addReply, likeReply, dislikeReply, removeReplyReaction, editComment, deleteComment, deleteReply,
+  voteReport, verifyReport,
+  getServiceRequests, getMyServiceRequests, getProviderRequests,
+  createServiceRequest, acceptServiceRequest, startService, completeService,
+  cancelServiceRequest, addServiceMessage, rateService,
+  getNearbyProviders, updateNotificationSettings, updateAvailability,
+  getLeaderboard, getUserStats, getAchievements,
+  getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
+  healthCheck, testConnection, uploadFile,
+  searchReports, searchUsers,
+  getTrafficAnalytics, getUserAnalytics,
+  setToken, removeToken, getToken, isAuthenticated,
 } = apiService;

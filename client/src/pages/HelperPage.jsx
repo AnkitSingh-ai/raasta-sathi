@@ -67,13 +67,13 @@ import toast from 'react-hot-toast';
 export function HelperPage() {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedService, setSelectedService] = useState<string>('');
+  const [selectedService, setSelectedService] = useState('');
   const [showProviders, setShowProviders] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   
-  const [formData, setFormData] = useState<Partial<ServiceRequest>>({
+  const [formData, setFormData] = useState({
     citizenName: user?.name || '',
     citizenPhone: user?.contactNumber || '',
     serviceType: '',

@@ -1,3 +1,436 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Base styles for better mobile experience */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+  
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Improve touch targets on mobile */
+  button, a, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better focus states for accessibility */
+  button:focus, a:focus, input:focus, select:focus, textarea:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+  
+  /* Smooth scrolling for iOS */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Component styles */
+@layer components {
+  /* Responsive container */
+  .container-responsive {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Responsive text utilities */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-2xl sm:text-3xl;
+  }
+  
+  .text-responsive-3xl {
+    @apply text-3xl sm:text-4xl;
+  }
+  
+  /* Responsive spacing utilities */
+  .space-responsive-sm {
+    @apply space-y-2 sm:space-y-3;
+  }
+  
+  .space-responsive-md {
+    @apply space-y-4 sm:space-y-6;
+  }
+  
+  .space-responsive-lg {
+    @apply space-y-6 sm:space-y-8;
+  }
+  
+  /* Responsive padding utilities */
+  .p-responsive-sm {
+    @apply p-2 sm:p-3;
+  }
+  
+  .p-responsive-md {
+    @apply p-3 sm:p-4;
+  }
+  
+  .p-responsive-lg {
+    @apply p-4 sm:p-6;
+  }
+  
+  .p-responsive-xl {
+    @apply p-6 sm:p-8;
+  }
+  
+  /* Responsive margin utilities */
+  .m-responsive-sm {
+    @apply m-2 sm:m-3;
+  }
+  
+  .m-responsive-md {
+    @apply m-3 sm:m-4;
+  }
+  
+  .m-responsive-lg {
+    @apply m-4 sm:m-6;
+  }
+  
+  .m-responsive-xl {
+    @apply m-6 sm:m-8;
+  }
+  
+  /* Responsive grid utilities */
+  .grid-responsive-1 {
+    @apply grid-cols-1;
+  }
+  
+  .grid-responsive-2 {
+    @apply grid-cols-1 sm:grid-cols-2;
+  }
+  
+  .grid-responsive-3 {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+  }
+  
+  .grid-responsive-4 {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-soft border border-slate-200;
+  }
+  
+  .card-hover {
+    @apply card hover:shadow-medium transition-all duration-200 hover:scale-[1.02];
+  }
+  
+  /* Button styles */
+  .btn-primary {
+    @apply px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 text-sm sm:text-base;
+  }
+  
+  .btn-secondary {
+    @apply px-4 sm:px-6 py-2 sm:py-3 bg-white text-slate-700 border-2 border-slate-200 rounded-lg font-medium hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 text-sm sm:text-base;
+  }
+  
+  .btn-large {
+    @apply px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg;
+  }
+  
+  /* Form styles */
+  .form-input {
+    @apply w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-slate-700 mb-1 sm:mb-2;
+  }
+  
+  /* Navigation styles */
+  .nav-link {
+    @apply text-sm font-medium transition-colors hover:text-blue-600;
+  }
+  
+  .nav-link-active {
+    @apply text-blue-600 border-b-2 border-blue-600 pb-1;
+  }
+  
+  /* Section styles */
+  .section {
+    @apply py-12 sm:py-16 lg:py-20;
+  }
+  
+  .section-sm {
+    @apply py-8 sm:py-12;
+  }
+  
+  .section-lg {
+    @apply py-16 sm:py-20 lg:py-24;
+  }
+}
+
+/* Utility styles */
+@layer utilities {
+  /* Custom utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Responsive visibility */
+  .mobile-only {
+    @apply block sm:hidden;
+  }
+  
+  .desktop-only {
+    @apply hidden sm:block;
+  }
+  
+  .tablet-only {
+    @apply hidden md:block lg:hidden;
+  }
+  
+  /* Responsive positioning */
+  .sticky-mobile {
+    @apply sticky top-0 z-50;
+  }
+  
+  /* Responsive shadows */
+  .shadow-responsive {
+    @apply shadow-soft sm:shadow-medium lg:shadow-strong;
+  }
+  
+  /* Responsive borders */
+  .border-responsive {
+    @apply border border-slate-200 sm:border-2;
+  }
+  
+  /* Responsive rounded corners */
+  .rounded-responsive {
+    @apply rounded-lg sm:rounded-xl lg:rounded-2xl;
+  }
+  
+  /* Responsive transitions */
+  .transition-responsive {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  /* Responsive animations */
+  .animate-responsive {
+    @apply animate-fade-in sm:animate-slide-up;
+  }
+  
+  /* Responsive spacing for mobile-first design */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Responsive typography */
+  .font-responsive {
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
+  }
+  
+  .heading-responsive {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+  }
+  
+  /* Responsive spacing */
+  .space-responsive {
+    @apply space-y-4 sm:space-y-6 lg:space-y-8;
+  }
+  
+  /* Responsive gaps */
+  .gap-responsive {
+    @apply gap-4 sm:gap-6 lg:gap-8;
+  }
+  
+  /* Responsive padding */
+  .padding-responsive {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  /* Responsive margins */
+  .margin-responsive {
+    @apply m-4 sm:m-6 lg:m-8;
+  }
+}
+
+/* Media query utilities for specific breakpoints */
+@media (max-width: 640px) {
+  .mobile-padding {
+    padding: 1rem;
+  }
+  
+  .mobile-margin {
+    margin: 1rem;
+  }
+  
+  .mobile-text {
+    font-size: 0.875rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tablet-padding {
+    padding: 1.5rem;
+  }
+  
+  .tablet-margin {
+    margin: 1.5rem;
+  }
+  
+  .tablet-text {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .desktop-padding {
+    padding: 2rem;
+  }
+  
+  .desktop-margin {
+    margin: 2rem;
+  }
+  
+  .desktop-text {
+    font-size: 1.125rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* Remove focus outlines from navigation elements */
+nav a:focus,
+nav button:focus,
+.header-nav a:focus,
+.header-nav button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove focus ring from all navigation links */
+nav a:focus-visible,
+.header-nav a:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove focus outline from all Link components */
+a:focus,
+button:focus {
+  outline: none !important;
+}
+
+/* Remove focus ring from all interactive elements */
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Enhanced comment reaction buttons */
+.comment-reaction-btn {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+}
+
+/* Location button positioning */
+.location-button-corner {
+  position: absolute;
+  z-index: 10;
+}
+
+.location-button-corner.top-right {
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+.location-button-corner.top-left {
+  top: 0.5rem;
+  left: 0.5rem;
+}
+
+.location-button-corner.bottom-right {
+  bottom: 0.5rem;
+  right: 0.5rem;
+}
+
+.location-button-corner.bottom-left {
+  bottom: 0.5rem;
+  left: 0.5rem;
+}
+
+.comment-reaction-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.comment-reaction-btn.liked {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-color: #059669;
+}
+
+.comment-reaction-btn.disliked {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border-color: #dc2626;
+}
+
+.comment-reaction-btn.neutral {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+.comment-reaction-btn.neutral:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+

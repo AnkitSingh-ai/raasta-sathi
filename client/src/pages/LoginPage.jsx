@@ -19,6 +19,9 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
+import { EmailVerificationModal } from '../components/EmailVerificationModal';
+import apiService from '../utils/api';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -32,32 +35,46 @@ export function LoginPage() {
     role: 'citizen'
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [registrationData, setRegistrationData] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
     try {
-      login(formData.email, formData.password, formData.role, formData.name);
-      
-      const welcomeMessage = formData.role === 'citizen' 
-        ? 'Welcome back!' 
-        : `Welcome, ${formData.role === 'police' ? 'Officer' : 
-            formData.role === 'municipal' ? 'Municipal Authority' : 'Service Provider'}!`;
-      
-      toast.success(isLogin ? welcomeMessage : 'Account created successfully!');
-      
-      // Redirect based on role
-      if (formData.role === 'citizen') {
-        navigate('/');
+      if (isLogin) {
+        // Login flow
+        await login(formData.email, formData.password);
+        
+        // Redirect based on role
+        if (formData.role === 'citizen') {
+          navigate('/');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
-        navigate('/dashboard');
+        // Registration flow
+        const response = await apiService.register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role
+        });
+        
+        if (response.status === 'success') {
+          // Store registration data and show verification modal
+          setRegistrationData({
+            email: formData.email,
+            tempId: response.data.tempId
+          });
+          setShowEmailVerification(true);
+          toast.success('Please check your email for verification code');
+        }
       }
     } catch (error) {
-      toast.error('Authentication failed. Please try again.');
+      toast.error(error.message || 'Operation failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -348,7 +365,11 @@ export function LoginPage() {
 
           {isLogin && (
             <div className="mt-6 text-center">
-              <button className="text-sm text-slate-500 hover:text-slate-700">
+              <button 
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+              >
                 Forgot your password?
               </button>
             </div>
@@ -362,6 +383,25 @@ export function LoginPage() {
           </div>
         </motion.div>
       </div>
+      
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal 
+        isOpen={showForgotPassword} 
+        onClose={() => setShowForgotPassword(false)} 
+      />
+      
+      {/* Email Verification Modal */}
+      <EmailVerificationModal 
+        isOpen={showEmailVerification} 
+        onClose={() => setShowEmailVerification(false)}
+        registrationData={registrationData}
+        onVerificationSuccess={(user) => {
+          // Switch to login mode and pre-fill email
+          setIsLogin(true);
+          setFormData(prev => ({ ...prev, email: user.email }));
+          toast.success('Account created successfully! You can now login.');
+        }}
+      />
     </div>
   );
 }
