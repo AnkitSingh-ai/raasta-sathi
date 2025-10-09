@@ -409,6 +409,16 @@ class ApiService {
   async getUserAnalytics(userId, timeframe = 'month') {
     return await apiClient.get(`/analytics/users/${userId}`, { params: { timeframe } });
   }
+
+  async updateUserPoints(points) {
+    return await apiClient.post('/users/update-points', { points });
+  }
+
+  async updateUserAchievements(achievementNames) {
+    return await apiClient.post('/users/update-achievements', { achievements: achievementNames });
+  }
+
+
 }
 
 const apiService = new ApiService();
@@ -431,6 +441,6 @@ export const {
   getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
   healthCheck, testConnection, uploadFile,
   searchReports, searchUsers,
-  getTrafficAnalytics, getUserAnalytics,
+  getTrafficAnalytics, getUserAnalytics, updateUserPoints, updateUserAchievements,
   setToken, removeToken, getToken, isAuthenticated,
 } = apiService;

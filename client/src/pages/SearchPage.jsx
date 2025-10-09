@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useReport } from '../contexts/ReportContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -24,7 +25,10 @@ import {
   Crosshair,
   RefreshCw,
   ExternalLink,
-  Map
+  Map,
+  Target,
+  Users,
+  Zap
 } from 'lucide-react';
 import { getAllPhotos, hasMultiplePhotos, getPhotoCount, getMainPhoto } from '../utils/photoUtils';
 import apiService from '../utils/api';
@@ -694,7 +698,28 @@ function PathScannerContent() {
                           />
                         </div>
                         
-                        <p className="text-xs text-slate-700">{report.description}</p>
+                        <div className="text-xs text-slate-700">
+                          {report.description.split('\n').map((line, index) => {
+                            if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                              // This is a heading - make it bold
+                              return (
+                                <span key={index} className="font-bold text-slate-800">
+                                  {line.trim()}
+                                </span>
+                              );
+                            } else if (line.trim()) {
+                              // This is content
+                              return (
+                                <span key={index}>
+                                  {line.trim()}
+                                </span>
+                              );
+                            } else {
+                              // Empty line - add space
+                              return <span key={index}> </span>;
+                            }
+                          })}
+                        </div>
                       </div>
                     </div>
                   );
@@ -904,6 +929,15 @@ function PathScannerContent() {
 
 export function SearchPage() {
   const { user } = useAuth();
+  const { 
+    isUserLiked, 
+    isUserViewed, 
+    getLikeCount, 
+    getViewCount, 
+    handleLike, 
+    handleViewIncrement,
+    initializeReports 
+  } = useReport();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [sortBy, setSortBy] = useState('distance');
@@ -1107,104 +1141,7 @@ export function SearchPage() {
     }
   };
 
-  const handleLike = async (reportId) => {
-    if (!user) {
-      toast.error('Please login to like reports');
-      return;
-    }
 
-    try {
-      // Store original state for potential rollback
-      const originalResults = [...results];
-      const originalFilteredResults = [...filteredResults];
-      
-      // Optimistically update UI for both results and filteredResults
-      const updateReportLikes = (report) => {
-        if (report._id === reportId) {
-          const isCurrentlyLiked = report.likes?.some(like => like._id === user._id);
-          const newLiked = !isCurrentlyLiked;
-          
-          console.log(`🔍 Like Debug - Report ${reportId}:`);
-          console.log(`   Current likes count: ${report.likes?.length || 0}`);
-          console.log(`   User already liked: ${isCurrentlyLiked}`);
-          console.log(`   Action: ${newLiked ? 'ADD' : 'REMOVE'} like`);
-          
-          if (newLiked) {
-            // Add like
-            const updatedReport = {
-              ...report,
-              likes: [...(report.likes || []), { _id: user._id, likedAt: new Date(), id: user._id }]
-            };
-            console.log(`   New likes count: ${updatedReport.likes.length}`);
-            return updatedReport;
-          } else {
-            // Remove like
-            const updatedReport = {
-              ...report,
-              likes: (report.likes || []).filter(like => like._id !== user._id)
-            };
-            console.log(`   New likes count: ${updatedReport.likes.length}`);
-            return updatedReport;
-          }
-        }
-        return report;
-      };
-
-      setResults(prevResults => prevResults.map(updateReportLikes));
-      setFilteredResults(prevResults => prevResults.map(updateReportLikes));
-
-      // Call backend API
-      const response = await apiService.likeReport(reportId);
-      
-      // Update with actual data from backend - use the response data directly
-      const updateBackendLikes = (report) => {
-        if (report._id === reportId) {
-          // Use the backend response to update the likes array
-          const backendLikesCount = response.data.likes;
-          const isLiked = response.data.isLiked;
-          
-          console.log(`🔍 Backend Update Debug - Report ${reportId}:`);
-          console.log(`   Backend response - likes: ${backendLikesCount}, isLiked: ${isLiked}`);
-          console.log(`   Current frontend likes count: ${report.likes?.length || 0}`);
-          
-          // Create a new likes array based on backend response
-          // If user liked, ensure their like is included
-          let newLikes = [];
-          
-          if (isLiked) {
-            // User liked - create array with their like + any existing likes from other users
-            const existingOtherLikes = (report.likes || []).filter(like => like._id !== user._id);
-            newLikes = [
-              ...existingOtherLikes,
-              { _id: user._id, likedAt: new Date(), id: user._id }
-            ];
-          } else {
-            // User unliked - remove their like, keep others
-            newLikes = (report.likes || []).filter(like => like._id !== user._id);
-          }
-          
-          console.log(`   New likes count: ${newLikes.length}`);
-          return {
-            ...report,
-            likes: newLikes
-          };
-        }
-        return report;
-      };
-
-      setResults(prevResults => prevResults.map(updateBackendLikes));
-      setFilteredResults(prevResults => prevResults.map(updateBackendLikes));
-
-      toast.success('Thank you for your feedback!');
-    } catch (error) {
-      // Revert to original state on error
-      setResults(originalResults);
-      setFilteredResults(originalFilteredResults);
-      
-      toast.error('Failed to update like. Please try again.');
-      console.error('Like error:', error);
-    }
-  };
 
   const handleAddComment = async () => {
     if (!newComment.trim()) {
@@ -1349,6 +1286,8 @@ export function SearchPage() {
     apiService.getReports()
       .then(data => {
         setResults(data);
+        // Initialize reports in ReportContext
+        initializeReports(data);
         setLoading(false);
       })
       .catch(err => {
@@ -1422,116 +1361,173 @@ export function SearchPage() {
     }
   };
 
+
+
   // ...rest of your component...
 
 
   return (
     <div className="min-h-screen bg-slate-50 pt-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+
+
+        {/* Enhanced Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          className="text-center mb-6"
         >
-          <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-slate-900">Search Traffic Issues</h1>
-          <button
-            onClick={() => setShowPathScan(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <MapPin className="h-5 w-5" />
-            <span>Path Scan</span>
-          </button>
-        </div>
-          <p className="text-lg text-slate-600">Find traffic reports and incidents near you</p>
+          {/* Main Header with Gradient Background */}
+          <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-xl p-4 mb-4 shadow-md">
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-left">
+                  <h1 className="text-xl font-bold text-white mb-1 flex items-center space-x-2">
+                    <Target className="h-5 w-5 text-yellow-300" />
+                    <span>Smart Traffic Search</span>
+                  </h1>
+                  <p className="text-sm text-blue-100">Find and analyze traffic reports with AI-powered insights</p>
+                </div>
+                <button
+                  onClick={() => setShowPathScan(true)}
+                  className="group px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all duration-300 flex items-center space-x-2 border border-white/30 hover:border-white/50 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                >
+                  <MapPin className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold text-xs">Path Scanner</span>
+                  <Zap className="h-3.5 w-3.5 text-yellow-300" />
+                </button>
+              </div>
+              
+              {/* Stats Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3">
+                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="p-1 bg-blue-500/30 rounded-md">
+                      <Eye className="h-3 w-3 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">{results.length}</div>
+                      <div className="text-xs text-blue-100">Total Reports</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="p-1 bg-green-500/30 rounded-md">
+                      <CheckCircle className="h-3 w-3 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">
+                        {results.filter(r => r.status === 'Resolved').length}
+                      </div>
+                      <div className="text-xs text-blue-100">Resolved</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="p-1 bg-yellow-500/30 rounded-md">
+                      <AlertTriangle className="h-3 w-3 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">
+                        {results.filter(r => r.severity === 'high').length}
+                      </div>
+                      <div className="text-xs text-blue-100">High Priority</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="p-1 bg-purple-500/30 rounded-md">
+                      <Users className="h-3 w-3 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">
+                        {results.reduce((acc, r) => acc + getLikeCount(r._id || r.id), 0)}
+                      </div>
+                      <div className="text-xs text-blue-100">Total Likes</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
-        {/* Search and Filters */}
+        {/* Search & Filter Section */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-8"
+          className="bg-white rounded-xl shadow-md border border-slate-200 p-4 mb-6"
         >
-          {/* Search Bar */}
-          <div className="relative mb-6">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by location or description..."
-              className="w-full pl-12 pr-4 py-4 border border-slate-300 rounded-xl text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleGetLocation}
-              disabled={locationLoading}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {locationLoading ? (
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : (
-                <Crosshair className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {/* Location Status */}
-          {userLocation && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-700">
-                  Location detected - showing nearest issues by default
-                </span>
-              </div>
-            </div>
-          )}
-          {!userLocation && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4 text-blue-600" />
-                <span className="text-sm text-blue-700">
-                  Click the location button to see nearest issues
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mb-4">
-            {filterOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => setSelectedFilter(option.value)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    selectedFilter === option.value
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sort Options */}
-          <div className="flex items-center justify-between">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-slate-600">Sort by:</span>
+              <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                <Search className="h-4 w-4 text-white" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-900">Search & Filter</h2>
+            </div>
+            {/* Results Count - Top Right Corner */}
+            <div className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+              {filteredResults.length} results
+            </div>
+          </div>
+
+          {/* Three Horizontal Input Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Search</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search reports..."
+                  className="w-full pl-8 pr-10 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleGetLocation}
+                  disabled={locationLoading}
+                  className="absolute right-2.5 top-1/2 transform -translate-y-1/2 p-1 text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Crosshair className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Type Filter */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Type</label>
+              <select
+                value={selectedFilter}
+                onChange={(e) => setSelectedFilter(e.target.value)}
+                className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {filterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Options */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Sort By</label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {sortOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -1540,111 +1536,237 @@ export function SearchPage() {
                 ))}
               </select>
             </div>
-            <div className="text-sm text-slate-500">
-              {filteredResults.length} results found
-            </div>
           </div>
         </motion.div>
 
-        {/* Results */}
-        <div className="space-y-4">
-          {filteredResults.map((result, index) => {
-            const Icon = getIconForType(result.type);
-            return (
-              <motion.div
-                key={result.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all"
-              >
-                <div className="flex items-start space-x-4">
-                  <div className={`p-3 rounded-lg ${getColorForSeverity(result.severity)}`}>
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-slate-900 capitalize">
-                        {result.type.replace('_', ' ')}
-                      </h3>
-                      <div className="flex items-center space-x-3 text-sm text-slate-500">
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="h-4 w-4" />
-                          <span>{getDistanceText(result)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{result.createdAt ? new Date(result.createdAt).toLocaleString() : 'N/A'}</span>
-                        </div>
-                      </div>
+        {/* Enhanced Results Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-12"
+        >
+          {/* Section Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Search Results</h3>
+                <p className="text-slate-500 text-sm">Found {filteredResults.length} traffic reports</p>
+              </div>
+            </div>
+            
+            {/* Results Count */}
+            <div className="text-right">
+              <div className="text-2xl font-bold text-slate-800">{filteredResults.length}</div>
+              <div className="text-sm text-slate-500">
+                {filteredResults.length === 1 ? 'Report' : 'Reports'} found
+              </div>
+            </div>
+          </div>
+
+          {/* Reports Grid - 3 Cards per Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {filteredResults.map((result, index) => {
+                const Icon = getIconForType(result.type);
+                return (
+                  <motion.div
+                    key={result.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    className="group relative bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-lg border border-slate-200 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden"
+                    onClick={() => {
+                      handleViewIncrement(result._id || result.id);
+                      openReportDetail(result);
+                    }}
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    
+                    {/* Date and Status Badge */}
+                    <div className="absolute top-3 right-3 z-10 flex items-center space-x-2">
+                      {/* Date */}
+                      <span className="px-0.5 py-0.5 rounded-full text-xs font-normal bg-white/90 text-slate-600 shadow-sm border border-slate-200" style={{ fontSize: '10px' }}>
+                        {result.createdAt 
+                          ? new Date(result.createdAt).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : 'Date N/A'
+                        }
+                      </span>
+                      
+                      {/* Status Badge */}
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-md ${
+                        result.status === 'Fake Report'
+                          ? 'bg-gradient-to-r from-red-500 to-red-600 text-white'
+                          : result.status === 'Resolved' 
+                          ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
+                          : result.status === 'in_progress'
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                          : 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white'
+                      }`}>
+                        {result.status === 'Fake Report' ? '🔴 Fake Report' :
+                         result.status === 'Resolved' ? '✅ Resolved' : 
+                         result.status === 'in_progress' ? '🔄 In Progress' : '🟡 Active'}
+                      </span>
                     </div>
                     
-                  <p className="text-slate-600 mb-2">{getLocationText(result.location)}</p>
-                    <p className="text-slate-700 mb-4">{result.description}</p>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLike(result._id || result.id);
-                          }}
-                          className={`flex items-center space-x-1 text-sm ${
-                            result.likes?.some(like => like.user === user?._id) ? 'text-red-500' : 'text-slate-500'
-                          } hover:text-red-500 transition-colors`}
-                        >
-                          <Heart className={`h-4 w-4 ${result.likes?.some(like => like._id === user?._id) ? 'fill-current' : ''}`} />
-                          <span>{Array.isArray(result.likes) ? result.likes.length : (result.likes || 0)}</span>
-                        </button>
-                        <button
-                          onClick={() => openComments(result)}
-                          disabled={isAddingComment}
-                          className="flex items-center space-x-1 text-sm text-green-600 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="View Comments"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          <span>{Array.isArray(result.comments) ? result.comments.length : (result.comments || 0)}</span>
-                        </button>
-                        {result.status === 'resolved' && (
-                          <span className="px-2 py-1 bg-green-100 text-green-600 text-xs rounded-full">
-                            Resolved
-                          </span>
-                        )}
-                        {result.status === 'pending' && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-600 text-xs rounded-full">
-                            Pending
-                          </span>
-                        )}
-                        {result.status === 'in-progress' && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full">
-                            In Progress
-                          </span>
+                    <div className="relative z-10 p-4 flex flex-col h-full">
+                      {/* Header Section */}
+                      <div className="flex items-start justify-between mb-3 flex-shrink-0">
+                        <div className="flex flex-col space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <div className={`p-2 rounded-lg ${
+                              result.severity === 'high' ? 'bg-red-100 text-red-600' :
+                              result.severity === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                              'bg-green-100 text-green-600'
+                            }`}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            
+                            {/* Location Button */}
+                            <LocationButton 
+                              location={result.location} 
+                              variant="floating" 
+                              size="small"
+                            />
+                          </div>
+                          
+                          {/* Title */}
+                          <h3 className="font-semibold text-slate-900 capitalize text-sm line-clamp-2 flex-shrink-0 min-h-[1.5rem]">
+                            {result.title || `${result.type.charAt(0).toUpperCase() + result.type.slice(1)} Report`}
+                          </h3>
+                        </div>
+                      </div>
+                      
+                      {/* Image Section */}
+                      <div className="mb-4 flex-shrink-0">
+                        {getMainPhoto(result) ? (
+                          <div className="relative">
+                            <img 
+                              src={apiService.getImageUrl(getMainPhoto(result))} 
+                              alt="Report photo" 
+                              className="w-full h-20 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+                            />
+                            
+                            {/* Photo count indicator */}
+                            {hasMultiplePhotos(result) && (
+                              <div className="absolute top-1 right-1 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                +{getPhotoCount(result) - 1}
+                              </div>
+                            )}
+                            
+                            {/* View All Photos Button */}
+                            {hasMultiplePhotos(result) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePhotoGalleryOpen(result); }}
+                                className="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded-full hover:bg-opacity-90 transition-all"
+                              >
+                                View All
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-slate-100 rounded-lg h-20 flex items-center justify-center">
+                            <div className="text-center text-slate-400">
+                              <MapPin className="h-4 w-4 mx-auto mb-1" />
+                              <p className="text-xs">No image</p>
+                            </div>
+                          </div>
                         )}
                       </div>
                       
-                      <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => openReportDetail(result)}
-                          className="px-3 py-1 bg-blue-100 text-blue-600 rounded-lg text-sm hover:bg-blue-200 transition-colors"
-                        >
-                          View Details
-                        </button>
-                        <button 
-                          onClick={() => handleShare('copy', result)}
-                          className="px-3 py-1 bg-green-100 text-green-600 rounded-lg text-sm hover:bg-green-200 transition-colors"
-                          title="Share Report"
-                        >
-                          <Navigation className="h-4 w-4" />
-                        </button>
+                      {/* Description */}
+                      <div className="mb-3 flex-shrink-0 min-h-[1.5rem]">
+                        {result.description ? (
+                          <p className="text-slate-600 text-xs line-clamp-2">
+                            {result.description}
+                          </p>
+                        ) : (
+                          <div className="h-6"></div>
+                        )}
+                      </div>
+                      
+                      {/* Location */}
+                      <div className="mb-4 flex-shrink-0 min-h-[1rem]">
+                        <p className="text-slate-600 text-xs line-clamp-1">
+                          {getLocationText(result.location)}
+                        </p>
+                      </div>
+                      
+                      {/* Footer Stats */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-auto">
+                        <div className="flex items-center space-x-3 text-xs text-slate-600">
+                          {/* Views - Display Only */}
+                          <div className="flex items-center space-x-1 text-slate-600">
+                            <Eye className={`h-3 w-3 transition-all duration-200 ${
+                              isUserViewed(result._id || result.id) ? 'text-blue-500 fill-current' : 'text-blue-500'
+                            }`} />
+                            <span>{getViewCount(result._id || result.id)}</span>
+                          </div>
+                          
+                          {/* Likes - Clickable with like functionality */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLike(result._id || result.id);
+                            }}
+                            disabled={!user}
+                            className={`flex items-center space-x-1 transition-colors cursor-pointer group ${
+                              !user ? 'opacity-50 cursor-not-allowed' : ''
+                            } ${
+                              isUserLiked(result._id || result.id) ? 'text-red-600' : 'text-slate-600 hover:text-red-600'
+                            }`}
+                            title={!user ? 'Login to like' : isUserLiked(result._id || result.id) ? 'Unlike' : 'Like'}
+                          >
+                            <Heart className={`h-3 w-3 transition-all duration-200 ${
+                              isUserLiked(result._id || result.id) ? 'text-red-500 fill-current' : 'text-red-500'
+                            } group-hover:scale-110`} />
+                            <span>{getLikeCount(result._id || result.id)}</span>
+                          </button>
+                          
+                          {/* Comments - Clickable */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openComments(result);
+                            }}
+                            className="flex items-center space-x-1 hover:text-green-600 transition-colors cursor-pointer group"
+                            title="View Comments"
+                          >
+                            <MessageCircle className="h-3 w-3 text-green-500 group-hover:scale-110 transition-transform" />
+                            <span>{Array.isArray(result.comments) ? result.comments.length : (result.comments || 0)}</span>
+                          </button>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-end">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openReportDetail(result);
+                            }}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-all duration-200 hover:scale-105 shadow-md hover:shadow-lg"
+                          >
+                            View Details
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
         {/* Empty State */}
         {filteredResults.length === 0 && (
@@ -1776,7 +1898,31 @@ export function SearchPage() {
                     {/* Description */}
                     <div className="bg-slate-50 rounded-lg p-4">
                       <h4 className="text-sm font-medium text-slate-600 mb-2">Description</h4>
-                      <p className="text-slate-700">{selectedReport.description}</p>
+                      <div className="text-slate-700">
+                        {selectedReport.description ? 
+                          selectedReport.description.split('\n').map((line, index) => {
+                            if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                              // This is a heading - make it bold
+                              return (
+                                <div key={index} className="font-bold text-slate-800 mb-2 mt-3 first:mt-0">
+                                  {line.trim()}
+                                </div>
+                              );
+                            } else if (line.trim()) {
+                              // This is content - add proper spacing
+                              return (
+                                <div key={index} className="mb-2">
+                                  {line.trim()}
+                                </div>
+                              );
+                            } else {
+                              // Empty line - add spacing
+                              return <div key={index} className="mb-3"></div>;
+                            }
+                          })
+                          : 'No description provided'
+                        }
+                      </div>
                     </div>
 
                     {/* Poll Display */}
@@ -1804,7 +1950,7 @@ export function SearchPage() {
                       </div>
                       
                       {/* Voting Buttons */}
-                      {user && selectedReport.status === 'Pending' && !selectedReport.isExpired && (
+                      {user && selectedReport.status === 'Active' && !selectedReport.isExpired && (
                         <div className="grid grid-cols-3 gap-2">
                           <button
                             onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'stillThere')}
@@ -1887,11 +2033,12 @@ export function SearchPage() {
                       <div className="bg-slate-50 rounded-lg p-4">
                         <h4 className="text-sm font-medium text-slate-600 mb-2">Status</h4>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          selectedReport.status === 'Fake Report' ? 'bg-red-100 text-red-800' :
                           selectedReport.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                          selectedReport.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                          selectedReport.status === 'Active' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {selectedReport.status || 'Pending'}
+                          {selectedReport.status || 'Active'}
                         </span>
                       </div>
                     </div>
@@ -1909,34 +2056,101 @@ export function SearchPage() {
                     <div className="bg-slate-50 rounded-lg p-4">
                       <h4 className="text-sm font-medium text-slate-600 mb-3">Engagement</h4>
                       <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900">
-                            {Array.isArray(selectedReport.likes) ? selectedReport.likes.length : (selectedReport.likes || 0)}
-                          </div>
-                          <div className="text-xs text-slate-600">Likes</div>
+                        {/* Likes - Interactive */}
+                        <div className="text-center">
+                          <button
+                            onClick={() => handleLike(selectedReport._id || selectedReport.id)}
+                            disabled={!user}
+                            className={`w-full transition-all duration-200 ${
+                              !user ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title={!user ? 'Login to like' : isUserLiked(selectedReport) ? 'Unlike' : 'Like'}
+                          >
+                            <div className={`text-2xl font-bold transition-colors ${
+                              isUserLiked(selectedReport._id || selectedReport.id) ? 'text-red-600' : 'text-slate-900'
+                            }`}>
+                              {getLikeCount(selectedReport._id || selectedReport.id)}
+                            </div>
+                            <div className="text-xs text-slate-600 flex items-center justify-center space-x-1">
+                              <Heart className={`h-3 w-3 ${
+                                isUserLiked(selectedReport) ? 'text-red-500 fill-current' : 'text-slate-500'
+                              }`} />
+                              <span>Likes</span>
+                            </div>
+                          </button>
                         </div>
+                        
+                        {/* Comments */}
                         <div>
                           <div className="text-2xl font-bold text-slate-900">
                             {Array.isArray(selectedReport.comments) ? selectedReport.comments.length : (selectedReport.comments || 0)}
                           </div>
                           <div className="text-xs text-slate-600">Comments</div>
                         </div>
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900">
-                            {selectedReport.views || 0}
-                          </div>
-                          <div className="text-xs text-slate-600">Views</div>
+                        
+                        {/* Views - Interactive */}
+                        <div className="text-center">
+                          <button
+                            onClick={() => handleViewIncrement(selectedReport._id || selectedReport.id)}
+                            disabled={!user}
+                            className={`w-full transition-all duration-200 ${
+                              !user ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title={!user ? 'Login to view' : isUserViewed(selectedReport) ? 'Already viewed' : 'Mark as viewed'}
+                          >
+                            <div className={`text-2xl font-bold transition-colors ${
+                              isUserViewed(selectedReport) ? 'text-blue-600' : 'text-slate-900'
+                            }`}>
+                              {selectedReport.views || 0}
+                            </div>
+                            <div className="text-xs text-slate-600 flex items-center justify-center space-x-1">
+                              <Eye className={`h-3 w-3 ${
+                                isUserViewed(selectedReport) ? 'text-blue-500 fill-current' : 'text-slate-500'
+                              }`} />
+                              <span>Views</span>
+                            </div>
+                          </button>
                         </div>
                       </div>
                       
-                      {/* Comments Button */}
-                      <div className="mt-4 text-center">
+                      {/* Action Buttons */}
+                      <div className="mt-4 space-y-2">
+                        {/* View Button */}
+                        {user && (
+                          <button
+                            onClick={() => handleViewIncrement(selectedReport._id || selectedReport.id)}
+                            disabled={isUserViewed(selectedReport)}
+                            className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              isUserViewed(selectedReport)
+                                ? 'bg-blue-100 text-blue-600 border border-blue-200 cursor-not-allowed'
+                                : 'bg-blue-100 text-blue-600 border border-blue-200 hover:bg-blue-200'
+                            }`}
+                          >
+                            {isUserViewed(selectedReport) ? '👁️ Already Viewed' : '👁️ Mark as Viewed'}
+                          </button>
+                        )}
+                        
+                        {/* Like Button */}
+                        {user && (
+                          <button
+                            onClick={() => handleLike(selectedReport._id || selectedReport.id)}
+                            className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              isUserLiked(selectedReport)
+                                ? 'bg-red-100 text-red-600 border border-red-200 hover:bg-red-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                            }`}
+                          >
+                            {isUserLiked(selectedReport._id || selectedReport.id) ? '❤️ Liked' : '🤍 Like Report'}
+                          </button>
+                        )}
+                        
+                        {/* Comments Button */}
                         <button
                           onClick={() => {
                             setShowReportDetail(false);
                             openComments(selectedReport);
                           }}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                         >
                           View All Comments ({Array.isArray(selectedReport.comments) ? selectedReport.comments.length : 0})
                         </button>

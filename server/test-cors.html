@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test - Image Loading</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        img { max-width: 300px; border: 1px solid #ddd; border-radius: 4px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔍 CORS Test - Image Loading</h1>
+    
+    <div class="test-section">
+        <h2>1. Test CORS Endpoint</h2>
+        <button onclick="testCors()">Test CORS</button>
+        <div id="cors-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>1.1. Test Login CORS</h2>
+        <button onclick="testLogin()">Test Login CORS</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test Image Loading</h2>
+        <p>Try to load an image from your uploads folder:</p>
+        <input type="text" id="imagePath" placeholder="e.g., photo-1755802983821-708095052.jpg" style="width: 300px; padding: 8px;">
+        <button onclick="testImage()">Load Image</button>
+        <div id="image-result"></div>
+        <img id="test-image" style="display: none;">
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Direct Image URL</h2>
+        <p>Direct image test:</p>
+        <img src="http://localhost:5002/uploads/photo-1755802983821-708095052.jpg" 
+             alt="Test Image" 
+             onload="logSuccess('Direct image loaded successfully!')"
+             onerror="logError('Direct image failed to load')">
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Console Logs</h2>
+        <div id="logs" class="log"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logs.appendChild(logEntry);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function logSuccess(message) {
+            log(`✅ ${message}`, 'success');
+        }
+
+        function logError(message) {
+            log(`❌ ${message}`, 'error');
+        }
+
+        async function testCors() {
+            const resultDiv = document.getElementById('cors-result');
+            try {
+                log('Testing CORS endpoint...');
+                const response = await fetch('http://localhost:5002/cors-test-image');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ CORS Test Successful!<br>Message: ${data.message}<br>Timestamp: ${data.timestamp}</div>`;
+                    logSuccess('CORS endpoint working correctly');
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ CORS Test Failed: ${data.error || 'Unknown error'}</div>`;
+                    logError('CORS endpoint failed');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ CORS Test Error: ${error.message}</div>`;
+                logError(`CORS test error: ${error.message}`);
+            }
+        }
+
+        async function testLogin() {
+            const resultDiv = document.getElementById('login-result');
+            try {
+                log('Testing Login CORS with credentials...');
+                const response = await fetch('http://localhost:5002/api/auth/me', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok || response.status === 401) {
+                    // 401 is expected if not logged in, but CORS should work
+                    resultDiv.innerHTML = `<div class="success">✅ Login CORS Working!<br>Status: ${response.status}<br>CORS headers properly configured for credentials</div>`;
+                    logSuccess(`Login CORS working - Status: ${response.status}`);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Login CORS Failed: Status ${response.status}</div>`;
+                    logError(`Login CORS failed - Status: ${response.status}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Login CORS Error: ${error.message}</div>`;
+                logError(`Login CORS error: ${error.message}`);
+            }
+        }
+
+        async function testImage() {
+            const imagePath = document.getElementById('imagePath').value;
+            const resultDiv = document.getElementById('image-result');
+            const testImage = document.getElementById('test-image');
+            
+            if (!imagePath) {
+                resultDiv.innerHTML = '<div class="error">❌ Please enter an image path</div>';
+                return;
+            }
+
+            try {
+                log(`Testing image: ${imagePath}`);
+                
+                // Test if image exists via API
+                const response = await fetch(`http://localhost:5002/test-image/${imagePath}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ Image found!<br>Size: ${data.size} bytes<br>Created: ${data.created}</div>`;
+                    logSuccess(`Image found: ${data.size} bytes`);
+                    
+                    // Try to load the image
+                    testImage.src = `http://localhost:5002/uploads/${imagePath}`;
+                    testImage.style.display = 'block';
+                    
+                    testImage.onload = () => {
+                        logSuccess('Image loaded successfully in img tag');
+                    };
+                    
+                    testImage.onerror = () => {
+                        logError('Image failed to load in img tag');
+                    };
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Image not found: ${data.error}</div>`;
+                    logError(`Image not found: ${data.error}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Test Error: ${error.message}</div>`;
+                logError(`Test error: ${error.message}`);
+            }
+        }
+
+        // Auto-test CORS on page load
+        window.onload = () => {
+            log('Page loaded, testing CORS...');
+            testCors();
+        };
+    </script>
+</body>
+</html>

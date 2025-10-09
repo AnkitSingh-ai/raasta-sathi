@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
@@ -16,7 +16,8 @@ import {
   Eye,
   ArrowRight,
   CheckCircle,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +31,7 @@ import LocationButton from '../components/LocationButton';
 export function HomePage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [recentReports, setRecentReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
@@ -43,6 +45,11 @@ export function HomePage() {
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
   const [selectedReportPhotos, setSelectedReportPhotos] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [reportsStats, setReportsStats] = useState({
+    totalActive: 0,
+    totalAccidents: 0
+  });
 
 
   // Get user's current location
@@ -61,6 +68,38 @@ export function HomePage() {
       );
     }
   };
+
+  // Fetch reports statistics for live map card
+  useEffect(() => {
+    const fetchReportsStats = async () => {
+      try {
+        const response = await apiService.getAllReports();
+        let reports = [];
+        
+        if (response && Array.isArray(response)) {
+          reports = response;
+        } else if (response && response.reports && Array.isArray(response.reports)) {
+          reports = response.reports;
+        }
+
+        // Calculate statistics
+        const totalActive = reports.filter(report => report.isActive).length;
+        const totalAccidents = reports.filter(report => 
+          report.isActive && report.type === 'accident'
+        ).length;
+
+        setReportsStats({
+          totalActive,
+          totalAccidents
+        });
+      } catch (error) {
+        console.error('Failed to fetch reports stats:', error);
+        // Don't show error toast as this is not critical
+      }
+    };
+
+    fetchReportsStats();
+  }, []);
 
   // Fetch recent reports
   const fetchRecentReports = async () => {
@@ -83,7 +122,8 @@ export function HomePage() {
           description: report.description,
           poll: report.poll || { stillThere: 0, resolved: 0, notSure: 0 },
           expiresAt: report.expiresAt,
-          isExpired: report.isExpired
+          isExpired: report.isExpired,
+          comments: report.comments || []
         }));
         setRecentReports(recent);
       }
@@ -135,6 +175,7 @@ export function HomePage() {
           poll: report.poll || { stillThere: 0, resolved: 0, notSure: 0 },
           expiresAt: report.expiresAt,
           isExpired: report.isExpired,
+          comments: report.comments || [],
           distance: calculateDistance(
             userLocation.lat, 
             userLocation.lng, 
@@ -182,9 +223,32 @@ export function HomePage() {
   };
 
   // Handle report click to show details
-  const handleReportClick = (report) => {
+  const handleReportClick = async (report) => {
     setSelectedReport(report);
     setShowReportDetail(true);
+    setLoadingComments(true);
+    
+    // Fetch comments for the selected report
+    try {
+      const commentsResponse = await apiService.getComments(report.id);
+      if (commentsResponse && commentsResponse.data && Array.isArray(commentsResponse.data.comments)) {
+        setSelectedReport(prev => ({
+          ...prev,
+          comments: commentsResponse.data.comments
+        }));
+      } else if (commentsResponse && Array.isArray(commentsResponse)) {
+        // Fallback for direct array response
+        setSelectedReport(prev => ({
+          ...prev,
+          comments: commentsResponse
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+      // Don't show error toast as comments are not critical for viewing the report
+    } finally {
+      setLoadingComments(false);
+    }
   };
 
   // Handle photo gallery open
@@ -322,9 +386,10 @@ export function HomePage() {
       
       // Update the selected report with new comment
       if (selectedReport && selectedReport.id === reportId) {
+        const newComment = response.data?.comment || response;
         setSelectedReport(prev => ({
           ...prev,
-          comments: [...(prev.comments || []), response.data?.comment || response]
+          comments: [...(prev.comments || []), newComment]
         }));
       }
       
@@ -347,6 +412,21 @@ export function HomePage() {
       );
       
       toast.success('Comment added successfully!');
+      
+      // Refresh comments to get the latest data
+      if (selectedReport && selectedReport.id === reportId) {
+        try {
+          const refreshResponse = await apiService.getComments(reportId);
+          if (refreshResponse && refreshResponse.data && Array.isArray(refreshResponse.data.comments)) {
+            setSelectedReport(prev => ({
+              ...prev,
+              comments: refreshResponse.data.comments
+            }));
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh comments:', refreshError);
+        }
+      }
     } catch (error) {
       console.error('Failed to add comment:', error);
       toast.error('Failed to add comment');
@@ -364,7 +444,7 @@ export function HomePage() {
     }
     return (
       <div className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-600">
-        ⏳ Pending
+        🟡 Active
       </div>
     );
   };
@@ -470,95 +550,211 @@ export function HomePage() {
     { number: '50K+', label: 'Active Users', icon: Users },
     { number: '25K+', label: 'Reports Monthly', icon: AlertTriangle },
     { number: '95%', label: 'Accuracy Rate', icon: Award },
-    { number: '24/7', label: 'Live Monitoring', icon: Clock }
+    { number: '24/7', label: 'Live Monitoring', icon: Clock },
+    { number: '100K+', label: 'Comments', icon: MessageCircle }
   ];
 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-12 sm:py-16 md:py-20 lg:py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-green-500/5 to-orange-500/10"></div>
+      <section className="relative py-16 flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl"></div>
+        </div>
+        
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left Content */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-center lg:text-left order-2 lg:order-1"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="text-center lg:text-left space-y-8"
             >
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight">
-                {t('hero.title')}
-                <span className="block bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mt-2">
-                  रास्ता साथी
-                </span>
-              </h1>
-              <p className="mt-4 sm:mt-6 text-lg sm:text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                {t('hero.subtitle')}
-              </p>
-              <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
+              {/* Badge */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="inline-flex items-center px-4 py-2 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full shadow-lg"
+              >
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                <span className="text-sm font-medium text-slate-700">Live Traffic Monitoring</span>
+              </motion.div>
+              
+              {/* Main Heading */}
+              <div className="space-y-3">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight">
+                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    {t('hero.title')}
+                  </span>
+                  <span className="block text-xl sm:text-2xl md:text-3xl text-slate-600 mt-3 font-normal">
+                    रास्ता साथी
+                  </span>
+                </h1>
+                <p className="text-base sm:text-lg md:text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto lg:mx-0">
+                  {t('hero.subtitle')}
+                </p>
+              </div>
+              
+              {/* CTA Buttons */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start"
+              >
                 {user ? (
                   user.role === 'citizen' ? (
                     <Link
                       to="/report"
-                      className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm sm:text-base"
+                      className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold text-base shadow-xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
                     >
-                      {t('hero.cta')}
+                      <span className="relative z-10">{t('hero.cta')}</span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </Link>
                   ) : (
                     <Link
                       to="/dashboard"
-                      className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm sm:text-base"
+                      className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold text-base shadow-xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
                     >
-                      Go to Dashboard
+                      <span className="relative z-10">Go to Dashboard</span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </Link>
                   )
                 ) : (
                   <Link
                     to="/login"
-                    className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm sm:text-base"
+                    className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold text-base shadow-xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
                   >
-                    Get Started
+                    <span className="relative z-10">Get Started</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </Link>
                 )}
                 <Link
                   to="/map"
-                  className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 text-sm sm:text-base"
+                  className="group px-6 py-3 bg-white/80 backdrop-blur-sm text-slate-700 border-2 border-slate-200 rounded-xl font-semibold text-base hover:bg-white hover:border-slate-300 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105"
                 >
-                  View Live Map
+                  <span className="flex items-center space-x-2">
+                    <Navigation className="h-4 w-4" />
+                    <span>View Live Map</span>
+                  </span>
                 </Link>
-              </div>
+              </motion.div>
+              
+              {/* Trust Indicators */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="flex items-center justify-center lg:justify-start space-x-4 text-xs text-slate-500"
+              >
+                <div className="flex items-center space-x-2">
+                  <Shield className="h-3 w-3 text-green-500" />
+                  <span>Trusted by 50K+ users</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-3 w-3 text-blue-500" />
+                  <span>24/7 monitoring</span>
+                </div>
+              </motion.div>
             </motion.div>
 
+            {/* Right Content - Interactive Map Preview */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative order-1 lg:order-2"
+              initial={{ opacity: 0, x: 50, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+              className="relative"
             >
-              <div className="relative bg-white rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 border border-slate-200">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-green-500/5 rounded-2xl"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border border-white/20 overflow-hidden group cursor-pointer hover:shadow-blue-500/25 transition-all duration-500 hover:-translate-y-3"
+                   onClick={() => navigate('/map')}>
+                
+                {/* Live Status Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-100 rounded-xl">
+                      <Navigation className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                          Live Updates
+                        </span>
+                      </div>
+                      <h3 className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold text-xl">Live Traffic Map</h3>
+                      <p className="text-sm text-slate-600">Real-time updates</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 rounded-full">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-green-700">Live</span>
+                  </div>
+                </div>
+                
+                {/* Interactive Map Preview */}
+                <div 
+                  className="relative bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl h-64 mb-6 overflow-hidden group-hover:shadow-xl transition-all duration-500 cursor-pointer border border-blue-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/map');
+                  }}
+                >
+                  <img 
+                    src="/google-maps-759.jpg.avif" 
+                    alt="Live Traffic Map" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+                  
+                  {/* Interactive Elements Overlay */}
+                  <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-lg">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                      <span className="text-xs font-semibold text-slate-700">{reportsStats.totalActive} Active</span>
+                    </div>
+                  </div>
+                  
+                  <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-lg">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                      <span className="text-xs font-semibold text-slate-700">{reportsStats.totalAccidents} Accidents</span>
+                    </div>
+                  </div>
+                  
+                  {/* Click Indicator */}
+                  <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/10 transition-colors duration-500 rounded-2xl"></div>
+                  <div className="absolute bottom-4 left-4 bg-black/80 text-white px-3 py-2 rounded-xl text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    Click to explore →
+                  </div>
+                </div>
+                
+                {/* Live Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
                     <div className="flex items-center space-x-2">
-                      <Navigation className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                      <span className="font-semibold text-slate-900 text-sm sm:text-base">Live Traffic Map</span>
-                    </div>
-                    <div className="flex space-x-2">
-                      <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-slate-500">Live</span>
+                      <div className="p-1.5 bg-red-200 rounded-md">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-red-700">{reportsStats.totalAccidents}</div>
+                        <div className="text-xs text-red-600 font-medium">Accidents</div>
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-slate-100 rounded-lg h-32 sm:h-40 md:h-48 flex items-center justify-center mb-3 sm:mb-4">
-                    <MapPin className="h-12 w-12 sm:h-16 sm:w-16 text-slate-400" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                    <div className="flex items-center space-x-2 p-2 sm:p-3 bg-red-50 rounded-lg">
-                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
-                      <span className="text-xs sm:text-sm text-red-700">3 Accidents</span>
-                    </div>
-                    <div className="flex items-center space-x-2 p-2 sm:p-3 bg-yellow-50 rounded-lg">
-                      <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
-                      <span className="text-xs sm:text-sm text-yellow-700">5 Checkpoints</span>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1.5 bg-blue-200 rounded-md">
+                        <Shield className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-blue-700">{reportsStats.totalActive}</div>
+                        <div className="text-xs text-blue-600 font-medium">Active Reports</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -569,22 +765,60 @@ export function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 sm:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+      <section className="py-12 bg-white relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50/30"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">
+              Trusted by Thousands of Users
+            </h2>
+            <p className="text-base text-slate-600 max-w-2xl mx-auto">
+              Join a growing community of citizens, authorities, and emergency services working together for safer roads
+            </p>
+          </motion.div>
+          
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {stats.map((stat, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="text-center"
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="group relative"
               >
-                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-2xl mb-3 sm:mb-4">
-                  <stat.icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 text-center">
+                  {/* Icon Container */}
+                  <div className="relative mb-3">
+                    <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300 group-hover:scale-110">
+                      <stat.icon className="h-7 w-7 text-white" />
+                    </div>
+                    {/* Glow Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl blur-xl opacity-0 group-hover:opacity-60 transition-opacity duration-300"></div>
+                  </div>
+                  
+                  {/* Stats Content */}
+                  <div className="space-y-2">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-indigo-700 transition-all duration-300">
+                      {stat.number}
+                    </div>
+                    <div className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors duration-300">
+                      {stat.label}
+                    </div>
+                  </div>
+                  
+                  {/* Hover Border Effect */}
+                  <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-blue-200 transition-all duration-300"></div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">{stat.number}</div>
-                <div className="text-sm sm:text-base text-slate-600">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -592,15 +826,20 @@ export function HomePage() {
       </section>
 
       {/* Recent Reports Section - Public View */}
-      <section className="py-12 sm:py-16 bg-slate-50">
+      <section className="py-12 sm:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3 sm:mb-4">Recent Traffic Reports</h2>
-            <p className="text-lg sm:text-xl text-slate-600">Live updates from our community</p>
+            <div className="inline-flex items-center px-3 py-1 bg-blue-100 border border-blue-200 rounded-full mb-3">
+              <span className="text-xs font-medium text-blue-700">Live Updates</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 via-blue-700 to-indigo-700 mb-2">
+              Recent Traffic Reports
+            </h2>
+            <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto">Stay informed with real-time traffic updates from our community</p>
             <button
               onClick={fetchRecentReports}
               disabled={loadingReports}
-              className="mt-3 sm:mt-4 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 inline-flex items-center space-x-2 text-sm sm:text-base"
+              className="mt-3 sm:mt-4 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 disabled:opacity-50 inline-flex items-center space-x-2 text-sm sm:text-base shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               <Clock className="h-4 w-4" />
               <span>Refresh Reports</span>
@@ -616,16 +855,17 @@ export function HomePage() {
               <p>No recent reports available.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {recentReports.map((report, index) => (
                 <motion.div
                   key={report.id}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="relative bg-white rounded-xl p-2 sm:p-3 shadow-lg border border-slate-200 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  className="group relative bg-white rounded-xl p-2 sm:p-3 shadow-lg border border-slate-200 cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105 flex flex-col overflow-hidden"
                   onClick={() => handleReportClick(report)}
                 >
+                  <div className="absolute inset-0 bg-blue-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <div className={`p-2 rounded-lg ${
@@ -703,9 +943,28 @@ export function HomePage() {
                   
                   {/* Report Description */}
                   {report.description && (
-                    <p className="text-slate-600 text-xs mb-3 line-clamp-2">
-                      {report.description}
-                    </p>
+                    <div className="text-slate-600 text-xs mb-3 line-clamp-2">
+                      {report.description.split('\n').map((line, index) => {
+                        if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                          // This is a heading - make it bold
+                          return (
+                            <span key={index} className="font-bold text-slate-700">
+                              {line.trim()}
+                            </span>
+                          );
+                        } else if (line.trim()) {
+                          // This is content
+                          return (
+                            <span key={index}>
+                              {line.trim()}
+                            </span>
+                          );
+                        } else {
+                          // Empty line - add space
+                          return <span key={index}> </span>;
+                        }
+                      })}
+                    </div>
                   )}
                   
                   {/* Poll Display */}
@@ -731,7 +990,7 @@ export function HomePage() {
                         </div>
                       
                       {/* Voting Buttons */}
-                      {user && report.status === 'Pending' && !report.isExpired && (
+                      {user && report.status === 'Active' && !report.isExpired && (
                         <div className="grid grid-cols-3 gap-1">
                           <button
                             onClick={(e) => {
@@ -786,32 +1045,39 @@ export function HomePage() {
                     </div>
                   </div>
                   
-                  <p className="text-slate-600 text-xs mb-2 line-clamp-1">
-                    {typeof report.location === 'string' 
-                      ? report.location 
-                      : report.location?.address || 'Location not specified'
-                    }
-                  </p>
-                  
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="capitalize">{report.type}</span>
-                    <span className={`px-2 py-1 rounded-full ${
-                      report.severity === 'high' ? 'bg-red-200 text-red-700' :
-                      report.severity === 'medium' ? 'bg-yellow-200 text-yellow-700' :
-                      'bg-green-200 text-green-700'
-                    }`}>
-                      {report.severity} priority
-                    </span>
+                                    <div className="mt-auto">
+                    <p className="text-slate-600 text-xs mb-2 line-clamp-1">
+                      {typeof report.location === 'string' 
+                        ? report.location 
+                        : report.location?.address || 'Location not specified'
+                      }
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <div className="flex items-center space-x-2">
+                        <span className="flex items-center space-x-1 text-blue-600">
+                          <MessageCircle className="h-3 w-3" />
+                          <span>{report.comments && Array.isArray(report.comments) ? report.comments.length : 0}</span>
+                        </span>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full ${
+                        report.severity === 'high' ? 'bg-red-200 text-red-700' :
+                        report.severity === 'medium' ? 'bg-yellow-200 text-yellow-700' :
+                        'bg-green-200 text-green-700'
+                      }`}>
+                        {report.severity} priority
+                      </span>
+                    </div>
                   </div>
                 </motion.div>
               ))}
             </div>
           )}
 
-          <div className="text-center">
+          <div className="text-center mt-8">
             <Link
               to="/map"
-              className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               <Eye className="h-5 w-5" />
               <span>View All Reports on Map</span>
@@ -822,15 +1088,20 @@ export function HomePage() {
 
       {/* Location-Based Reports Section */}
       {userLocation && (
-        <section className="py-12 sm:py-16 bg-white">
+        <section className="py-12 sm:py-16 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-8 sm:mb-12">
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3 sm:mb-4">Reports Near You</h2>
-              <p className="text-lg sm:text-xl text-slate-600">Traffic incidents in your area</p>
+              <div className="inline-flex items-center px-3 py-1 bg-green-100 border border-green-200 rounded-full mb-3">
+                <span className="text-xs font-medium text-green-700">Location Based</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 via-green-700 to-blue-700 mb-2">
+                Reports Near You
+              </h2>
+              <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto">Traffic incidents in your area with real-time distance tracking</p>
               <button
                 onClick={fetchLocationBasedReports}
                 disabled={loadingReports}
-                className="mt-3 sm:mt-4 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors inline-flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                className="mt-3 sm:mt-4 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 inline-flex items-center space-x-2"
               >
                 <MapPin className="h-4 w-4" />
                 <span>{loadingReports ? 'Loading...' : 'Refresh Nearby Reports'}</span>
@@ -885,9 +1156,10 @@ export function HomePage() {
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
-                    className="relative bg-gradient-to-br from-green-50 to-blue-50 rounded-xl p-2 sm:p-3 shadow-lg border border-green-200 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105"
+                    className="group relative bg-gradient-to-br from-green-50 to-blue-50 rounded-xl p-2 sm:p-3 shadow-lg border border-green-200 cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105 overflow-hidden"
                     onClick={() => handleReportClick(report)}
                   >
+                    <div className="absolute inset-0 bg-green-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <div className={`p-2 rounded-lg ${
@@ -968,9 +1240,28 @@ export function HomePage() {
                     
                     {/* Report Description */}
                     {report.description && (
-                      <p className="text-slate-600 text-xs mb-3 line-clamp-2">
-                        {report.description}
-                      </p>
+                      <div className="text-slate-600 text-xs mb-3 line-clamp-2">
+                        {report.description.split('\n').map((line, index) => {
+                          if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                            // This is a heading - make it bold
+                            return (
+                              <span key={index} className="font-bold text-slate-700">
+                                {line.trim()}
+                              </span>
+                            );
+                          } else if (line.trim()) {
+                            // This is content
+                            return (
+                              <span key={index}>
+                                {line.trim()}
+                              </span>
+                            );
+                          } else {
+                            // Empty line - add space
+                            return <span key={index}> </span>;
+                          }
+                        })}
+                      </div>
                     )}
                     
                     {/* Poll Display */}
@@ -996,7 +1287,7 @@ export function HomePage() {
                         </div>
                         
                         {/* Voting Buttons */}
-                        {user && report.status === 'Pending' && !report.isExpired && (
+                        {user && report.status === 'Active' && !report.isExpired && (
                           <div className="grid grid-cols-3 gap-1">
                             <button
                               onClick={(e) => {
@@ -1060,7 +1351,12 @@ export function HomePage() {
                                       </p>
                   
                   <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span className="capitalize">{report.type}</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="flex items-center space-x-1 text-blue-600">
+                          <MessageCircle className="h-3 w-3" />
+                          <span>{report.comments && Array.isArray(report.comments) ? report.comments.length : 0}</span>
+                        </span>
+                      </div>
                       <span className={`px-2 py-1 rounded-full ${
                         report.severity === 'high' ? 'bg-red-200 text-red-700' :
                         report.severity === 'medium' ? 'bg-yellow-200 text-yellow-700' :
@@ -1078,75 +1374,364 @@ export function HomePage() {
       )}
 
       {/* Features Section */}
-      <section className="py-16 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-3 sm:mb-4">
-              Powerful Features for Smart Traffic Management
-            </h2>
-            <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto">
-              Comprehensive solution connecting citizens, authorities, and emergency services
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="bg-slate-50 rounded-2xl p-8 hover:shadow-lg transition-all duration-300 border border-slate-100 group"
-                >
-                  <div className={`inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-${feature.color}-500 to-${feature.color}-600 rounded-xl mb-6`}>
-                    <Icon className="h-7 w-7 text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-slate-900 mb-3">{feature.title}</h3>
-                  <p className="text-slate-600 leading-relaxed mb-4">{feature.description}</p>
-                  <Link
-                    to={feature.link}
-                    className={`inline-flex items-center space-x-2 text-${feature.color}-600 hover:text-${feature.color}-700 font-medium group-hover:translate-x-1 transition-all`}
-                  >
-                    <span>{feature.linkText}</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
+      <section className="py-16 bg-gradient-to-br from-slate-50 to-blue-50/30 relative overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-200/20 rounded-full blur-3xl"></div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 sm:py-20 bg-gradient-to-br from-blue-600 to-green-600">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="text-center mb-16"
           >
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4 sm:mb-6">
-              Join the Movement for Safer Roads
+            <div className="inline-flex items-center px-4 py-2 bg-blue-100 border border-blue-200 rounded-full mb-4">
+              <span className="text-sm font-medium text-blue-700">Platform Features</span>
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
+              Everything You Need for
+              <span className="block bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Smart Traffic Management
+              </span>
             </h2>
-            <p className="text-lg sm:text-xl text-blue-100 mb-8 sm:mb-10 leading-relaxed">
-              Be part of a community-driven initiative to make traffic safer and more efficient for everyone
+            <p className="text-base text-slate-600 max-w-3xl mx-auto leading-relaxed">
+              A comprehensive platform that connects citizens, authorities, and emergency services 
+              through real-time communication and intelligent reporting systems
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+          </motion.div>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              const colorMap = {
+                blue: 'from-blue-500 to-blue-600',
+                green: 'from-green-500 to-green-600',
+                purple: 'from-purple-500 to-purple-600',
+                orange: 'from-orange-500 to-orange-600'
+              };
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  className="group relative"
+                >
+                  <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-lg border border-white/50 hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 overflow-hidden">
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-blue-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div className="relative z-10">
+                      {/* Icon Container */}
+                      <div className="relative mb-4">
+                        <div className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br ${colorMap[feature.color]} rounded-3xl shadow-lg group-hover:shadow-xl transition-all duration-500 group-hover:scale-110`}>
+                          <Icon className="h-8 w-8 text-white" />
+                        </div>
+                        {/* Glow Effect */}
+                        <div className={`absolute inset-0 bg-gradient-to-br ${colorMap[feature.color]} rounded-3xl blur-2xl opacity-0 group-hover:opacity-40 transition-opacity duration-500`}></div>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="space-y-3">
+                        <h3 className="text-lg font-bold text-slate-900 group-hover:text-slate-800 transition-colors duration-300">
+                          {feature.title}
+                        </h3>
+                        <p className="text-slate-600 leading-relaxed text-sm">
+                          {feature.description}
+                        </p>
+                        
+                        {/* CTA Link */}
+                        <Link
+                          to={feature.link}
+                          className={`inline-flex items-center space-x-2 text-${feature.color}-600 hover:text-${feature.color}-700 font-semibold group-hover:translate-x-2 transition-all duration-300`}
+                        >
+                          <span>{feature.linkText}</span>
+                          <ArrowRight className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
+                        </Link>
+                      </div>
+                    </div>
+                    
+                    {/* Hover Border Effect */}
+                    <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-blue-200 transition-all duration-500"></div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+          
+          {/* Bottom CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="text-center mt-16"
+          >
+            <div className="inline-flex items-center space-x-3 px-8 py-4 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-slate-700">
+                Ready to get started? Choose your path above
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-16 bg-white relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50/20"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <div className="inline-flex items-center px-4 py-2 bg-green-100 border border-green-200 rounded-full mb-4">
+              <span className="text-sm font-medium text-green-700">User Stories</span>
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
+              Loved by Citizens & Authorities
+            </h2>
+            <p className="text-base text-slate-600 max-w-3xl mx-auto">
+              See how our platform is making a real difference in traffic safety and community engagement
+            </p>
+          </motion.div>
+          
+          {/* Testimonials Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Testimonial 1 */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="group relative h-full"
+            >
+              <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 h-full flex flex-col">
+                {/* Quote Icon */}
+                <div className="absolute top-4 right-4 text-blue-200 group-hover:text-blue-300 transition-colors duration-300">
+                  <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
+                  </svg>
+                </div>
+                
+                <div className="space-y-4 flex-1 flex flex-col">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-base">R</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 text-sm">Rajesh Kumar</h4>
+                      <p className="text-xs text-slate-600">Citizen, Delhi</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-slate-700 leading-relaxed text-sm flex-1">
+                    "This app has completely changed how I navigate through the city. Real-time updates about accidents and road conditions help me plan my route better. Great initiative!"
+                  </p>
+                  
+                  <div className="flex items-center space-x-1 mt-auto">
+                    {[...Array(5)].map((_, i) => (
+                      <svg key={i} className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                      </svg>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Testimonial 2 */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="group relative h-full"
+            >
+              <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 h-full flex flex-col">
+                {/* Quote Icon */}
+                <div className="absolute top-4 right-4 text-green-200 group-hover:text-green-300 transition-colors duration-300">
+                  <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
+                  </svg>
+                </div>
+                
+                <div className="space-y-4 flex-1 flex flex-col">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-base">P</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 text-sm">Priya Sharma</h4>
+                      <p className="text-xs text-slate-600">Traffic Police, Mumbai</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-slate-700 leading-relaxed text-sm flex-1">
+                    "As a traffic officer, this platform has revolutionized our response time. We get instant notifications about incidents and can coordinate much more effectively."
+                  </p>
+                  
+                  <div className="flex items-center space-x-1 mt-auto">
+                    {[...Array(5)].map((_, i) => (
+                      <svg key={i} className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                      </svg>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Testimonial 3 */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="group relative h-full"
+            >
+              <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-100 hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 h-full flex flex-col">
+                {/* Quote Icon */}
+                <div className="absolute top-4 right-4 text-purple-200 group-hover:text-purple-300 transition-colors duration-300">
+                  <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
+                  </svg>
+                </div>
+                
+                <div className="space-y-4 flex-1 flex flex-col">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-base">A</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 text-sm">Amit Patel</h4>
+                      <p className="text-xs text-slate-600">Driver, Bangalore</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-slate-700 leading-relaxed text-sm flex-1">
+                    "The community voting system is brilliant! It helps filter out fake reports and gives us confidence in the information. This app is a lifesaver!"
+                  </p>
+                  
+                  <div className="flex items-center space-x-1 mt-auto">
+                    {[...Array(5)].map((_, i) => (
+                      <svg key={i} className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                      </svg>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+          
+          {/* Bottom Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-16 text-center"
+          >
+            <div className="inline-flex items-center space-x-8 px-8 py-6 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">4.9/5</div>
+                <div className="text-sm text-slate-600">User Rating</div>
+              </div>
+              <div className="w-px h-12 bg-slate-200"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">98%</div>
+                <div className="text-sm text-slate-600">Satisfaction</div>
+              </div>
+              <div className="w-px h-12 bg-slate-200"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">10K+</div>
+                <div className="text-sm text-slate-600">Reports Resolved</div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 relative overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 rounded-full translate-y-48 -translate-x-48 blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl"></div>
+        </div>
+        
+        {/* Floating Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-20 w-4 h-4 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+          <div className="absolute top-40 right-32 w-3 h-3 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute bottom-32 left-32 w-2 h-2 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute bottom-20 right-20 w-3 h-3 bg-white/20 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }}></div>
+        </div>
+        
+        <div className="max-w-5xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-6"
+          >
+            {/* Badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="inline-flex items-center px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full"
+            >
+              <div className="w-2 h-2 bg-green-400 rounded-full mr-3 animate-pulse"></div>
+              <span className="text-sm font-medium text-white/90">Join the Community</span>
+            </motion.div>
+            
+            {/* Main Content */}
+            <div className="space-y-4">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                Ready to Make Roads
+                <span className="block bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
+                  Safer for Everyone?
+                </span>
+              </h2>
+              <p className="text-lg md:text-xl text-blue-100 leading-relaxed max-w-3xl mx-auto">
+                Be part of a community-driven initiative that's transforming traffic safety through 
+                real-time reporting, intelligent monitoring, and collaborative problem-solving
+              </p>
+            </div>
+            
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center"
+            >
               {!user ? (
                 <>
                   <Link
                     to="/login"
-                    className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm sm:text-base"
+                    className="group relative px-10 py-5 bg-white text-blue-600 rounded-2xl font-bold text-lg shadow-2xl hover:shadow-white/25 transition-all duration-300 transform hover:-translate-y-2 hover:scale-105"
                   >
-                    Sign Up Now
+                    <span className="relative z-10">Get Started Today</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </Link>
                   <Link
                     to="/map"
-                    className="px-6 sm:px-8 py-3 sm:py-4 bg-transparent text-white border-2 border-white rounded-xl font-semibold hover:bg-white hover:text-blue-600 transition-all duration-200 text-sm sm:text-base"
+                    className="group px-10 py-5 bg-transparent text-white border-2 border-white/50 rounded-2xl font-bold text-lg hover:bg-white/10 hover:border-white transition-all duration-300 transform hover:-translate-y-2 hover:scale-105 backdrop-blur-sm"
                   >
-                    Explore Map
+                    <span className="flex items-center space-x-2">
+                      <Navigation className="h-6 w-6" />
+                      <span>Explore Live Map</span>
+                    </span>
                   </Link>
                 </>
               ) : (
@@ -1154,20 +1739,45 @@ export function HomePage() {
                   {user.role === 'citizen' && (
                     <Link
                       to="/report"
-                      className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm sm:text-base"
+                      className="group relative px-10 py-5 bg-white text-blue-600 rounded-2xl font-bold text-lg shadow-2xl hover:shadow-white/25 transition-all duration-300 transform hover:-translate-y-2 hover:scale-105"
                     >
-                      Start Reporting Now
+                      <span className="relative z-10">Start Reporting Now</span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </Link>
                   )}
                   <Link
                     to="/leaderboard"
-                    className="px-6 sm:px-8 py-3 sm:py-4 bg-transparent text-white border-2 border-white rounded-xl font-semibold hover:bg-white hover:text-blue-600 transition-all duration-200 text-sm sm:text-base"
+                    className="group px-10 py-5 bg-transparent text-white border-2 border-white/50 rounded-2xl font-bold text-lg hover:bg-white/10 hover:border-white transition-all duration-300 transform hover:-translate-y-2 hover:scale-105 backdrop-blur-sm"
                   >
-                    View Leaderboard
+                    <span className="flex items-center space-x-2">
+                      <Trophy className="h-6 w-6" />
+                      <span>View Leaderboard</span>
+                    </span>
                   </Link>
                 </>
               )}
-            </div>
+            </motion.div>
+            
+            {/* Trust Indicators */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="flex items-center justify-center space-x-8 text-sm text-white/80"
+            >
+              <div className="flex items-center space-x-2">
+                <Shield className="h-4 w-4 text-green-400" />
+                <span>Government Approved</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-blue-400" />
+                <span>50K+ Active Users</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 text-yellow-400" />
+                <span>24/7 Support</span>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </section>
@@ -1250,7 +1860,7 @@ export function HomePage() {
                       </span>
                     ) : (
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        ⏳ Pending
+                        🟡 Active
                       </span>
                     )}
                   </div>
@@ -1264,9 +1874,31 @@ export function HomePage() {
                 {/* Description */}
                 <div>
                   <h4 className="text-lg font-semibold text-slate-900 mb-2">Description</h4>
-                  <p className="text-slate-700 bg-slate-50 rounded-lg p-4">
-                    {selectedReport.description || 'No description provided'}
-                  </p>
+                  <div className="text-slate-700 bg-slate-50 rounded-lg p-4">
+                    {selectedReport.description ? 
+                      selectedReport.description.split('\n').map((line, index) => {
+                        if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                          // This is a heading - make it bold
+                          return (
+                            <div key={index} className="font-bold text-slate-800 mb-2 mt-3 first:mt-0">
+                              {line.trim()}
+                            </div>
+                          );
+                        } else if (line.trim()) {
+                          // This is content - add proper spacing
+                          return (
+                            <div key={index} className="mb-2">
+                              {line.trim()}
+                            </div>
+                          );
+                        } else {
+                          // Empty line - add spacing
+                          return <div key={index} className="mb-3"></div>;
+                        }
+                      })
+                      : 'No description provided'
+                    }
+                  </div>
                 </div>
 
                 {/* Photos */}
@@ -1347,7 +1979,7 @@ export function HomePage() {
                     </div>
                   </div>
                   {/* Voting Buttons */}
-                  {user && selectedReport.status === 'Pending' && !selectedReport.isExpired && (
+                  {user && selectedReport.status === 'Active' && !selectedReport.isExpired && (
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => handlePollVote(selectedReport.id, 'stillThere')}
@@ -1395,9 +2027,22 @@ export function HomePage() {
                 <div className="bg-slate-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-medium text-slate-600">Comments</h4>
-                    <span className="text-xs text-slate-500">
-                      {selectedReport.comments ? selectedReport.comments.length : 0} total
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-500">
+                        {selectedReport.comments && Array.isArray(selectedReport.comments) ? selectedReport.comments.length : 0} total
+                      </span>
+                      {selectedReport.comments && Array.isArray(selectedReport.comments) && selectedReport.comments.length > 3 && (
+                        <button
+                          onClick={() => {
+                            // Show all comments (could be expanded in future)
+                            toast.success('Showing all comments');
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-700 underline"
+                        >
+                          View All
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Add Comment Form */}
@@ -1429,16 +2074,30 @@ export function HomePage() {
                     </div>
                   )}
                   
-                  {selectedReport.comments && selectedReport.comments.length > 0 ? (
+                  {/* Comments Loading State */}
+                  {loadingComments && (
+                    <div className="text-center py-6">
+                      <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-blue-600 transition ease-in-out duration-150">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading comments...
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Comments Display */}
+                  {!loadingComments && selectedReport.comments && Array.isArray(selectedReport.comments) && selectedReport.comments.length > 0 ? (
                     <div className="space-y-3">
                       {selectedReport.comments.slice(-3).map((comment, index) => (
-                        <div key={index} className="bg-white rounded-lg p-3 border border-slate-200">
+                        <div key={comment._id || index} className="bg-white rounded-lg p-3 border border-slate-200">
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="text-sm font-medium text-slate-900">
                               {comment.user?.name || 'Anonymous'}
                             </span>
                             <span className="text-xs text-slate-500">
-                              {new Date(comment.createdAt).toLocaleDateString()}
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Unknown date'}
                             </span>
                           </div>
                           <p className="text-sm text-slate-700">{comment.text}</p>
@@ -1450,11 +2109,11 @@ export function HomePage() {
                         </p>
                       )}
                     </div>
-                  ) : (
+                  ) : !loadingComments ? (
                     <p className="text-sm text-slate-500 text-center py-4">
                       No comments yet. Be the first to comment!
                     </p>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Report Details */}

@@ -456,8 +456,9 @@ export function MyReportsPage() {
 
   const getStatusColor = (status) => {
     const colors = {
-      Pending: 'bg-yellow-100 text-yellow-800',
-      Resolved: 'bg-green-100 text-green-800'
+      Active: 'bg-yellow-100 text-yellow-800',
+      Resolved: 'bg-green-100 text-green-800',
+      'Fake Report': 'bg-red-100 text-red-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -476,8 +477,9 @@ export function MyReportsPage() {
 
   const statusOptions = [
     { value: 'all', label: 'All Status' },
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Resolved', label: 'Resolved' }
+    { value: 'Active', label: 'Active' },
+    { value: 'Resolved', label: 'Resolved' },
+    { value: 'Fake Report', label: 'Fake Report' }
   ];
 
   // Ensure reports is always an array
@@ -504,8 +506,9 @@ export function MyReportsPage() {
 
   const stats = {
     total: reportsArray.length,
-    pending: reportsArray.filter(r => r.status === 'Pending').length,
+    active: reportsArray.filter(r => r.status === 'Active').length,
     resolved: reportsArray.filter(r => r.status === 'Resolved').length,
+    fake: reportsArray.filter(r => r.status === 'Fake Report').length,
     totalLikes: reportsArray.reduce((sum, r) => sum + (r.likes?.length || 0), 0),
     totalViews: reportsArray.reduce((sum, r) => sum + (r.views || 0), 0)
   };
@@ -551,374 +554,566 @@ export function MyReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Enhanced Header with Background */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-8"
+          className="mb-6"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">My Reports</h1>
-              <p className="text-slate-600">Manage and track your traffic reports</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => loadMyReports(true)}
-                disabled={isRefreshing}
-                className="flex items-center space-x-2 px-4 py-3 border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh Reports"
-              >
-                <svg className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
-              <Link
-                to="/report"
-                className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                <Plus className="h-5 w-5" />
-                <span>New Report</span>
-              </Link>
+          <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-4 text-white shadow-xl">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
+            
+            <div className="relative z-10">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
+                <div className="mb-3 lg:mb-0">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-2 bg-white/20 backdrop-blur-sm rounded-xl">
+                      <BarChart3 className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h1 className="text-2xl lg:text-3xl font-bold mb-2 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                        My Reports Dashboard
+                      </h1>
+                      <p className="text-base text-blue-100 max-w-xl">
+                        Track, manage, and monitor all your traffic reports in one place. 
+                        Get real-time updates and insights about your contributions to road safety.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                  <button
+                    onClick={() => loadMyReports(true)}
+                    disabled={isRefreshing}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl font-semibold hover:bg-white/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                    title="Refresh Reports"
+                  >
+                    <svg className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-xs lg:text-sm">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                  </button>
+                  <Link
+                    to="/report"
+                    className="flex items-center justify-center space-x-2 px-6 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="text-xs lg:text-sm">Create New Report</span>
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-          {[
-            { label: 'Total Reports', value: stats.total, icon: BarChart3, color: 'blue' },
-            { label: 'Pending', value: stats.pending, icon: Clock, color: 'yellow' },
-    
-            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'purple' },
-            { label: 'Total Likes', value: stats.totalLikes, icon: Heart, color: 'red' },
-            { label: 'Total Views', value: stats.totalViews, icon: Eye, color: 'indigo' }
-          ].map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-white rounded-xl p-4 shadow-sm border border-slate-200"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg bg-${stat.color}-100`}>
-                    <Icon className={`h-4 w-4 text-${stat.color}-600`} />
+        {/* Compact Stats Overview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-6"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {[
+              { 
+                label: 'Total', 
+                value: stats.total, 
+                icon: BarChart3, 
+                gradient: 'from-blue-500 to-blue-600'
+              },
+              { 
+                label: 'Active', 
+                value: stats.active, 
+                icon: Clock, 
+                gradient: 'from-yellow-500 to-yellow-600'
+              },
+              { 
+                label: 'Resolved', 
+                value: stats.resolved, 
+                icon: CheckCircle, 
+                gradient: 'from-green-500 to-green-600'
+              },
+              { 
+                label: 'Likes', 
+                value: stats.totalLikes, 
+                icon: Heart, 
+                gradient: 'from-red-500 to-red-600'
+              },
+              { 
+                label: 'Views', 
+                value: stats.totalViews, 
+                icon: Eye, 
+                gradient: 'from-indigo-500 to-indigo-600'
+              }
+            ].map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="group bg-white rounded-lg p-2 shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300"
+                >
+                  <div className="flex items-center space-x-2">
+                    <div className={`p-1.5 rounded-md bg-gradient-to-r ${stat.gradient} shadow-sm`}>
+                      <Icon className="h-3 w-3 text-white" />
+                    </div>
+                    <div>
+                      <div className={`text-sm font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
+                        {stat.value}
+                      </div>
+                      <p className="text-xs font-medium text-slate-600">
+                        {stat.label}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-600">{stat.label}</p>
-                    <p className="text-lg font-bold text-slate-900">{stat.value}</p>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
 
-        {/* Filters and Search */}
+        {/* Compact Filters and Search */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-8"
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mb-6"
         >
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search your reports..."
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+          <div className="bg-white rounded-xl shadow-md border border-slate-200 p-3">
+            <div className="flex items-center space-x-2 mb-3">
+              <div className="p-1.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-md">
+                <Search className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-bold text-slate-800">Search & Filter</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Search */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Search</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search reports..."
+                    className="w-full pl-8 pr-2.5 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  />
+                </div>
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Type</label>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full px-2.5 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer"
+                >
+                  {reportTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-2.5 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer"
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-
-            {/* Type Filter */}
-            <div className="lg:w-48">
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            
+            {/* Active Filters Display */}
+            {(searchTerm || filterType !== 'all' || filterStatus !== 'all') && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-3 pt-3 border-t border-slate-200"
               >
-                {reportTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="lg:w-48">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {statusOptions.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-medium text-slate-600">Active:</span>
+                  {searchTerm && (
+                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                      <Search className="h-2.5 w-2.5" />
+                      <span>"{searchTerm}"</span>
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
+                    </span>
+                  )}
+                  {filterType !== 'all' && (
+                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">
+                      <span>{reportTypes.find(t => t.value === filterType)?.label}</span>
+                      <button
+                        onClick={() => setFilterType('all')}
+                        className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
+                    </span>
+                  )}
+                  {filterStatus !== 'all' && (
+                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">
+                      <span>{filterStatus}</span>
+                      <button
+                        onClick={() => setFilterStatus('all')}
+                        className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterType('all');
+                      setFilterStatus('all');
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
-        {/* Reports List */}
-        <div className="space-y-4">
-          <AnimatePresence>
-            {filteredReports.map((report, index) => {
-              const Icon = getIconForType(report.type);
-              return (
-                <motion.div
-                  key={report._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="relative bg-white rounded-lg shadow-sm border border-slate-200 p-4 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => openReportDetail(report)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className={`p-2 rounded-md border-2 ${getColorForSeverity(report.severity)}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
+        {/* Enhanced Reports List */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-12"
+        >
+          {/* Section Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <div className="p-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-md">
+                <BarChart3 className="h-3.5 w-3.5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-slate-800">Your Reports</h3>
+                <p className="text-slate-500 text-xs">Manage and monitor all your traffic reports</p>
+              </div>
+            </div>
+            
+            {/* Results Count */}
+            <div className="text-right">
+              <div className="text-lg font-bold text-slate-800">{filteredReports.length}</div>
+              <div className="text-xs text-slate-500">
+                {filteredReports.length === 1 ? 'Report' : 'Reports'} found
+              </div>
+            </div>
+          </div>
+
+          {/* Reports Grid - 3 Cards per Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {filteredReports.map((report, index) => {
+                const Icon = getIconForType(report.type);
+                return (
+                  <motion.div
+                    key={report._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    className="group relative bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-lg border border-slate-200 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden"
+                    onClick={() => openReportDetail(report)}
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-3">
-                          <h3 className="text-lg font-semibold text-slate-900">
+
+                    
+                    <div className="relative z-10 p-3 flex flex-col h-full">
+                      {/* Header Section - Fixed Height */}
+                      <div className="flex items-start justify-between mb-2 flex-shrink-0">
+                        <div className="flex flex-col space-y-1.5">
+                          <div className="flex items-center space-x-2">
+                            <div className={`p-1.5 rounded-lg ${
+                              report.severity === 'high' ? 'bg-red-100 text-red-600' :
+                              report.severity === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                              'bg-green-100 text-green-600'
+                            }`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            
+                            {/* Location Button */}
+                            <LocationButton 
+                              location={report.location} 
+                              variant="floating" 
+                              size="small"
+                            />
+                          </div>
+                          
+                          {/* Title - Below Navigation Icons */}
+                          <h3 className="font-semibold text-slate-900 capitalize text-sm line-clamp-2 flex-shrink-0 min-h-[1.25rem]">
                             {report.title || `${report.type.charAt(0).toUpperCase() + report.type.slice(1)} Report`}
                           </h3>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status || 'pending')}`}>
-                            {report.status || 'pending'}
-                          </span>
-                          
                         </div>
-                        
-                        {/* Action Buttons */}
-                        <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                          {/* Location Button - Left to comment logo */}
-                          <LocationButton 
-                            location={report.location} 
-                            variant="floating" 
-                            size="small"
-                          />
+                        <div className="text-right flex-shrink-0">
+                          {/* Date and Status Row */}
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-xs text-slate-500">
+                              {report.createdAt 
+                                ? new Date(report.createdAt).toLocaleDateString()
+                                : 'Date not specified'
+                              }
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold shadow-md ${
+                              report.status === 'Fake Report'
+                                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white'
+                                : report.status === 'Resolved' 
+                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
+                                : 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white'
+                            }`}>
+                              {report.status === 'Fake Report' ? '🔴 Fake Report' : report.status === 'Resolved' ? '✅ Resolved' : '🟡 Active'}
+                            </span>
+                          </div>
                           
-                          <button
-                            onClick={() => openComments(report)}
-                            disabled={isLoadingComments}
-                            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="View Comments"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setEditingReport(report)}
-                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                            title="Edit Report"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setShowDeleteModal(report._id)}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                            title="Delete Report"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {/* Action Buttons - Shifted Right */}
+                          <div className="flex items-center justify-end space-x-0.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openComments(report);
+                              }}
+                              disabled={isLoadingComments}
+                              className="p-1 text-green-600 hover:bg-green-100 rounded-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="View Comments"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingReport(report);
+                              }}
+                              className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-300 hover:scale-110"
+                              title="Edit Report"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDeleteModal(report._id);
+                              }}
+                              className="p-1 text-red-600 hover:bg-red-100 rounded-lg transition-all duration-300 hover:scale-110"
+                              title="Delete Report"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center space-x-4 text-sm text-slate-600 mb-3">
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="h-4 w-4" />
-                          <span>
-                            {typeof report.location === 'string' 
-                              ? report.location 
-                              : report.location?.address || 'Location not specified'
-                            }
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>
-                            {report.createdAt 
-                              ? new Date(report.createdAt).toLocaleDateString()
-                              : 'Date not specified'
-                            }
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Severity: {report.severity || 'medium'}</span>
-                        </div>
-                      </div>
-                      
-
-                      
-                      <p className="text-slate-700 mb-3 line-clamp-2">
-                        {report.description || 'No description provided'}
-                      </p>
-                      
-                                            {/* Photo and Poll Side by Side Layout */}
-                      <div className="grid grid-cols-2 gap-4 mb-3">
-                        {/* Photo Section */}
-                        <div className="relative">
-                          {getMainPhoto(report) ? (
-                            <div className="h-44 relative">
-                              <img 
-                                src={apiService.getImageUrl(getMainPhoto(report))} 
-                                alt="Report photo" 
-                                className="w-full h-full object-cover rounded-md"
-                              />
-                              
-                              {/* Photo count indicator */}
-                              {hasMultiplePhotos(report) && (
-                                <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full font-medium">
-                                  +{getPhotoCount(report) - 1} more
-                                </div>
-                              )}
-                              
-                              {/* View All Photos Button */}
-                              {hasMultiplePhotos(report) && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handlePhotoGalleryOpen(report); }}
-                                  className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded-full hover:bg-opacity-90 transition-all"
-                                >
-                                  View All Photos
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="h-44 bg-slate-100 rounded-md flex items-center justify-center">
-                              <div className="text-center text-slate-400">
-                                <MapPin className="h-8 w-8 mx-auto mb-1" />
-                                <p className="text-xs">No image</p>
+                      {/* Image Section - Slightly Larger Size */}
+                      <div className="mb-2 flex-shrink-0">
+                        {getMainPhoto(report) ? (
+                          <div className="relative">
+                            <img 
+                              src={apiService.getImageUrl(getMainPhoto(report))} 
+                              alt="Report photo" 
+                              className="w-full h-20 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+                            />
+                            
+                            {/* Photo count indicator */}
+                            {hasMultiplePhotos(report) && (
+                              <div className="absolute top-1 right-1 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                +{getPhotoCount(report) - 1}
                               </div>
+                            )}
+                            
+                            {/* View All Photos Button */}
+                            {hasMultiplePhotos(report) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePhotoGalleryOpen(report); }}
+                                className="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded-full hover:bg-opacity-90 transition-all"
+                              >
+                                View All
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-slate-100 rounded-lg h-20 flex items-center justify-center">
+                            <div className="text-center text-slate-400">
+                              <Camera className="h-4 w-4 mx-auto mb-1" />
+                              <p className="text-xs">No image</p>
                             </div>
-                          )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Description - Fixed Height */}
+                      <div className="mb-2 flex-shrink-0 min-h-[1rem]">
+                        {report.description ? (
+                          <div className="text-slate-600 text-xs line-clamp-2">
+                            {report.description.split('\n').map((line, index) => {
+                              if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                                // This is a heading - make it bold
+                                return (
+                                  <span key={index} className="font-bold text-slate-700">
+                                    {line.trim()}
+                                  </span>
+                                );
+                              } else if (line.trim()) {
+                                // This is content
+                                return (
+                                  <span key={index}>
+                                    {line.trim()}
+                                  </span>
+                                );
+                              } else {
+                                // Empty line - add space
+                                return <span key={index}> </span>;
+                              }
+                            })}
+                          </div>
+                        ) : (
+                          <div className="h-4"></div>
+                        )}
+                      </div>
+                      
+                      {/* Location - Fixed Height */}
+                      <div className="mb-2 flex-shrink-0 min-h-[0.75rem]">
+                        <p className="text-slate-600 text-xs line-clamp-1">
+                          {typeof report.location === 'string' 
+                            ? report.location 
+                            : report.location?.address || 'Location not specified'
+                          }
+                        </p>
+                      </div>
+                      
+                      {/* Poll Section - Smaller Size */}
+                      <div className="mb-2 flex-shrink-0">
+                        <div className="text-xs font-medium text-slate-700 mb-1 flex items-center">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5"></div>
+                          Community Poll
                         </div>
-                        
-                        {/* Poll Section */}
-                        <div className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 shadow-sm h-44 flex flex-col justify-center">
-                          <div className="text-xs font-medium text-slate-700 mb-2">Community Poll:</div>
-                          <div className="grid grid-cols-3 gap-1 mb-2">
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-1.5 border border-blue-200 shadow-sm">
+                          <div className="grid grid-cols-3 gap-1.5 mb-1.5">
                             <div className="text-center">
-                              <div className="text-lg mb-1">🚨</div>
                               <div className="text-sm font-bold text-red-600">{report.poll?.stillThere || 0}</div>
-                              <div className="text-xs text-slate-500">Still There</div>
+                              <div className="text-xs text-slate-600">Still There</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-lg mb-1">✅</div>
                               <div className="text-sm font-bold text-green-600">{report.poll?.resolved || 0}</div>
-                              <div className="text-xs text-slate-500">Resolved</div>
+                              <div className="text-xs text-slate-600">Resolved</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-lg mb-1">❌</div>
                               <div className="text-sm font-bold text-red-600">{report.poll?.notSure || 0}</div>
-                              <div className="text-xs text-slate-500">Fake Report</div>
+                              <div className="text-xs text-slate-600">Fake Report</div>
                             </div>
                           </div>
                           
-                          {/* Compact Poll Statistics */}
-                          <div className="text-center text-xs text-slate-600 mb-2">
+                          {/* Voting Buttons for Active Reports */}
+                          {report.status === 'Active' && !report.isExpired && (
+                            <div className="grid grid-cols-3 gap-0.5">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePollVote(report._id, 'stillThere');
+                                }}
+                                disabled={votingReports.has(report._id)}
+                                className="px-1 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200"
+                              >
+                                {votingReports.has(report._id) ? 'Voting...' : 'Still There'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePollVote(report._id, 'resolved');
+                                }}
+                                disabled={votingReports.has(report._id)}
+                                className="px-1 py-1 text-xs bg-green-100 text-green-600 rounded hover:bg-green-200 disabled:opacity-50 transition-all duration-200 border border-green-200"
+                              >
+                                {votingReports.has(report._id) ? 'Voting...' : 'Resolved'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePollVote(report._id, 'notSure');
+                                }}
+                                disabled={votingReports.has(report._id)}
+                                className="px-1 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200"
+                              >
+                                {votingReports.has(report._id) ? 'Voting...' : 'Fake Report'}
+                              </button>
+                            </div>
+                          )}
+                          
+                          {/* Poll Statistics */}
+                          <div className="text-center text-xs text-slate-600 mt-1.5 pt-1.5 border-t border-blue-200">
                             {(() => {
                               const totalVotes = (report.poll?.stillThere || 0) + (report.poll?.resolved || 0) + (report.poll?.notSure || 0);
                               const resolvedPercentage = totalVotes > 0 ? Math.round(((report.poll?.resolved || 0) / totalVotes) * 100) : 0;
                               return (
                                 <>
-                                  Total: <span className="font-medium">{totalVotes}</span>
+                                  Total: <span className="text-xs font-medium text-blue-600">{totalVotes}</span>
                                   {totalVotes > 0 && (
                                     <span className="ml-1">
-                                      • <span className="font-medium text-green-600">{resolvedPercentage}%</span>
+                                      • Resolved: <span className="text-xs font-medium text-green-600">{resolvedPercentage}%</span>
                                     </span>
                                   )}
                                 </>
                               );
                             })()}
                           </div>
-                          
-                          {/* Voting Buttons */}
-                          {user && report.status === 'Pending' && !report.isExpired && (
-                            <div className="grid grid-cols-3 gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handlePollVote(report._id, 'stillThere'); }}
-                                disabled={votingReports.has(report._id)}
-                                className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
-                              >
-                                {votingReports.has(report._id) ? 'Voting...' : '🚨 Still There'}
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handlePollVote(report._id, 'resolved'); }}
-                                disabled={votingReports.has(report._id)}
-                                className="px-2 py-1 text-xs bg-green-100 text-green-600 rounded hover:bg-green-200 disabled:opacity-50 transition-all duration-200 border border-green-200 hover:border-green-300"
-                              >
-                                {votingReports.has(report._id) ? 'Voting...' : '✅ Resolved'}
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handlePollVote(report._id, 'notSure'); }}
-                                disabled={votingReports.has(report._id)}
-                                className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
-                              >
-                                {votingReports.has(report._id) ? 'Voting...' : '❌ Fake Report'}
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
-                    
-                      {/* Engagement Stats */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-6">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleLikeReport(report._id);
-                            }}
-                            className={`flex items-center space-x-1 text-sm ${
-                              report.userLiked ? 'text-red-500' : 'text-slate-500'
-                            } hover:text-red-500 transition-colors`}
-                          >
-                            <Heart className={`h-4 w-4 ${report.userLiked ? 'fill-current' : ''}`} />
-                            <span>{report.likes?.length || 0}</span>
-                          </motion.button>
-                          
-                          <div className="flex items-center space-x-1 text-sm text-slate-500">
-                            <MessageCircle className="h-4 w-4" />
-                            <span>{report.comments?.length || 0}</span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 text-sm text-slate-500">
-                            <Eye className="h-4 w-4" />
+                      
+                      {/* Footer Stats */}
+                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 mt-auto">
+                        <div className="flex items-center space-x-2 text-xs text-slate-600">
+                          <div className="flex items-center space-x-1">
+                            <Eye className="h-3 w-3 text-blue-500" />
                             <span>{report.views || 0}</span>
                           </div>
-                        </div>
-                        
-                        <div className="text-sm text-slate-500">
-                          Type: <span className="capitalize font-medium">{report.type?.replace('_', ' ') || 'Unknown'}</span>
+                          <div className="flex items-center space-x-1">
+                            <Heart className="h-3 w-3 text-red-500" />
+                            <span>{report.likes?.length || 0}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <MessageCircle className="h-3 w-3 text-green-500" />
+                            <span>{report.comments?.length || 0}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
         {/* Empty State */}
         {filteredReports.length === 0 && !loading && (
@@ -992,7 +1187,31 @@ export function MyReportsPage() {
                         </div>
                         <div>
                           <label className="text-sm font-medium text-slate-600">Description</label>
-                          <p className="text-slate-900">{selectedReport.description || 'No description'}</p>
+                                                      <div className="text-slate-900 whitespace-pre-line">
+                              {selectedReport.description ? 
+                                selectedReport.description.split('\n').map((line, index) => {
+                                  if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                                    // This is a heading - make it bold
+                                    return (
+                                      <div key={index} className="font-bold text-slate-800 mb-2 mt-3 first:mt-0">
+                                        {line.trim()}
+                                      </div>
+                                    );
+                                  } else if (line.trim()) {
+                                    // This is content - add proper spacing
+                                    return (
+                                      <div key={index} className="mb-2">
+                                        {line.trim()}
+                                      </div>
+                                    );
+                                  } else {
+                                    // Empty line - add spacing
+                                    return <div key={index} className="mb-3"></div>;
+                                  }
+                                })
+                                : 'No description'
+                              }
+                            </div>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-slate-600">Severity</label>
@@ -1183,7 +1402,7 @@ export function MyReportsPage() {
                         </div>
                         
                         {/* Voting Buttons */}
-                        {user && selectedReport.status === 'Pending' && !selectedReport.isExpired && (
+                        {user && selectedReport.status === 'Active' && !selectedReport.isExpired && (
                           <div className="grid grid-cols-3 gap-4">
                             <button
                               onClick={() => handlePollVote(selectedReport._id, 'stillThere')}
@@ -1345,8 +1564,8 @@ export function MyReportsPage() {
                     <textarea
                       value={editingReport.description || ''}
                       onChange={(e) => setEditingReport({...editingReport, description: e.target.value})}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={6}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
                       placeholder="Enter report description"
                       required
                     />
@@ -1401,7 +1620,8 @@ export function MyReportsPage() {
                     >
                       {isEditing ? (
                         <div className="flex items-center space-x-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {/* Loader2 icon was removed, so using a placeholder or removing if not needed */}
+                          {/* <Loader2 className="h-4 w-4 animate-spin" /> */}
                           <span>Updating...</span>
                         </div>
                       ) : (

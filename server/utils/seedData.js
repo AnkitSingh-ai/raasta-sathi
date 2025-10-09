@@ -2,6 +2,7 @@ import { connect } from 'mongoose';
 import { deleteMany, create } from '../models/User.js';
 import { deleteMany as _deleteMany, create as _create } from '../models/Report.js';
 import { deleteMany as __deleteMany, create as __create } from '../models/ServiceRequest.js';
+import bcrypt from 'bcryptjs';
 require('dotenv').config();
 
 const seedData = async () => {
@@ -19,7 +20,7 @@ const seedData = async () => {
       {
         name: 'Rajesh Kumar',
         email: 'rajesh@example.com',
-        password: 'password123',
+        password: await bcrypt.hash('demo123', 12),
         role: 'citizen',
         contactNumber: '+91-9876543210',
         location: 'New Delhi',
@@ -31,7 +32,7 @@ const seedData = async () => {
       {
         name: 'Officer Priya Sharma',
         email: 'priya.police@example.com',
-        password: 'password123',
+        password: await bcrypt.hash('demo123', 12),
         role: 'police',
         contactNumber: '+91-9876543211',
         location: 'New Delhi',
@@ -42,7 +43,7 @@ const seedData = async () => {
       {
         name: 'Dr. Municipal Authority',
         email: 'municipal@example.com',
-        password: 'password123',
+        password: await bcrypt.hash('demo123', 12),
         role: 'municipal',
         contactNumber: '+91-9876543212',
         location: 'New Delhi',
@@ -52,7 +53,7 @@ const seedData = async () => {
       {
         name: 'Quick Response Services',
         email: 'service@example.com',
-        password: 'password123',
+        password: await bcrypt.hash('demo123', 12),
         role: 'service_provider',
         contactNumber: '+91-9876543213',
         location: 'New Delhi',

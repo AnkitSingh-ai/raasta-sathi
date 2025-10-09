@@ -37,7 +37,7 @@ const translations = {
     'dashboard.welcome': 'Welcome to Authority Dashboard',
     'dashboard.reports': 'Active Reports',
     'dashboard.verified': 'Verified',
-    'dashboard.pending': 'Pending',
+    'dashboard.pending': 'Active',
     'leaderboard.title': 'Community Leaders',
     'leaderboard.points': 'Points',
     'leaderboard.reports': 'Reports',

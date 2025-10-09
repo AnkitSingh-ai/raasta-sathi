@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import User from '../models/User.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { upload } from '../middleware/cloudinary.js';
+import fs from 'fs';
+import cloudinary from '../config/cloudinary.js';
+import { recalculateAllUserPoints, recalculateUserPoints } from '../utils/recalculateUserPoints.js';
 
 const router = Router();
 
@@ -14,7 +18,7 @@ router.get('/', protect, authorize('municipal'), async (req, res, next) => {
     let query = { isActive: true };
     if (role) query.role = role;
 
-    const users = await find(query)
+    const users = await User.find(query)
       .select('-password')
       .sort('-createdAt')
       .limit(limit * 1)
@@ -40,32 +44,7 @@ router.get('/', protect, authorize('municipal'), async (req, res, next) => {
   }
 });
 
-// @desc    Get user profile
-// @route   GET /api/users/:id
-// @access  Private
-router.get('/:id', protect, async (req, res, next) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select('-password')
-      .populate('totalReports');
 
-    if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User not found'
-      });
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        user
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
 
 // @desc    Update user notification settings
 // @route   PUT /api/users/notifications
@@ -155,7 +134,7 @@ router.get('/providers/nearby', protect, async (req, res, next) => {
       }
     };
 
-    const providers = await find(query)
+    const providers = await User.find(query)
       .select('name businessName serviceType rating completedServices contactNumber location')
       .limit(20);
 
@@ -200,6 +179,233 @@ router.post('/achievements', protect, async (req, res, next) => {
       }
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// @desc    Update user profile photo
+// @route   PUT /api/users/profile-photo
+// @access  Private
+router.put('/profile-photo', protect, upload.single('avatar'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please upload a photo'
+      });
+    }
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'profile-photos',
+      width: 300,
+      height: 300,
+      crop: 'fill',
+      quality: 'auto'
+    });
+
+    // Update user avatar
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatar: result.secure_url },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    // Delete local file
+    if (req.file.path) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Profile photo updated successfully',
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    // Delete local file if upload failed
+    if (req.file && req.file.path) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+});
+
+// @desc    Update user points (for achievements)
+// @route   POST /api/users/update-points
+// @access  Private
+router.post('/update-points', protect, async (req, res, next) => {
+  try {
+    const { points } = req.body;
+
+    if (!points || typeof points !== 'number' || points <= 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Valid points value is required'
+      });
+    }
+
+    // Update user points using the model method
+    await req.user.updatePoints(points);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Points updated successfully',
+      data: {
+        points: req.user.points,
+        level: req.user.level,
+        badge: req.user.badge
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @desc    Update user achievements
+// @route   POST /api/users/update-achievements
+// @access  Private
+router.post('/update-achievements', protect, async (req, res, next) => {
+  try {
+    const { achievements } = req.body;
+
+    if (!achievements || !Array.isArray(achievements)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Valid achievements array is required'
+      });
+    }
+
+    // Get current user achievements
+    const currentAchievements = req.user.achievements || [];
+    const currentAchievementNames = currentAchievements.map(ach => ach.name);
+
+    // Add new achievements that don't already exist
+    const newAchievements = achievements.filter(achName => !currentAchievementNames.includes(achName));
+    
+    if (newAchievements.length > 0) {
+      // Add new achievements to the user
+      const achievementsToAdd = newAchievements.map(name => ({
+        name: name,
+        earnedAt: new Date()
+      }));
+      
+      req.user.achievements.push(...achievementsToAdd);
+      await req.user.save();
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Achievements updated successfully',
+      data: {
+        achievements: req.user.achievements,
+        newAchievements: newAchievements
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+router.put('/profile', protect, async (req, res, next) => {
+  try {
+    const { name, email, contactNumber, location, notificationSettings } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (contactNumber) updateData.contactNumber = contactNumber;
+    if (location) updateData.location = location;
+    if (notificationSettings) updateData.notificationSettings = notificationSettings;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Profile updated successfully',
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @desc    Get user profile
+// @route   GET /api/users/:id
+// @access  Private
+router.get('/:id', protect, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('totalReports');
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @desc    Recalculate all user points (Admin only)
+// @route   POST /api/users/recalculate-points
+// @access  Private (Admin)
+router.post('/recalculate-points', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    console.log('🔄 Admin triggered points recalculation...');
+    
+    const result = await recalculateAllUserPoints();
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'User points recalculated successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Failed to recalculate user points:', error);
+    next(error);
+  }
+});
+
+// @desc    Recalculate specific user points (Admin only)
+// @route   POST /api/users/:userId/recalculate-points
+// @access  Private (Admin)
+router.post('/:userId/recalculate-points', protect, authorize('admin'), async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    console.log(`🔄 Admin triggered points recalculation for user ${userId}...`);
+    
+    const result = await recalculateUserPoints(userId);
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'User points recalculated successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error(`❌ Failed to recalculate points for user ${req.params.userId}:`, error);
     next(error);
   }
 });

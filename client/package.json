@@ -12,6 +12,7 @@
     "server:dev": "nodemon server.cjs"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.2.1",
     "@react-google-maps/api": "^2.19.3",
     "axios": "^1.10.0",
     "bcryptjs": "^2.4.3",

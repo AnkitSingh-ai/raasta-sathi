@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useReport } from '../contexts/ReportContext';
 import { GoogleMapComponent } from '../components/GoogleMap';
 import toast from 'react-hot-toast';
 import PhotoGallery from '../components/PhotoGallery';
@@ -51,10 +52,18 @@ import LocationButton from '../components/LocationButton';
 export function MapPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { 
+    isUserLiked, 
+    isUserViewed, 
+    getLikeCount, 
+    getViewCount, 
+    handleLike, 
+    handleViewIncrement, 
+    initializeReports 
+  } = useReport();
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedReport, setSelectedReport] = useState(null);
   const [mapCenter, setMapCenter] = useState({ lat: 28.6139, lng: 77.2090 });
-  const [showQuickReport, setShowQuickReport] = useState(false);
   const [showReportDetail, setShowReportDetail] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
@@ -79,6 +88,10 @@ const loadReports = async () => {
     const data = await getReports();
     console.log('📋 Loaded reports:', data);
     setReports(data);
+    // Initialize reports in ReportContext for like/view functionality
+    if (data && data.length > 0) {
+      initializeReports(data);
+    }
   } catch (err) {
     console.error('Failed to load reports:', err);
     toast.error('Failed to load reports');
@@ -187,6 +200,13 @@ useEffect(() => {
     clearInterval(interval);
   };
 }, []);
+
+// Synchronize reports with ReportContext when it changes
+useEffect(() => {
+  if (reports.length > 0) {
+    initializeReports(reports);
+  }
+}, [reports, initializeReports]);
   const getIconForType = (type) => {
     const icons = {
       accident: AlertTriangle,
@@ -239,112 +259,7 @@ useEffect(() => {
     }
   };
 
-  const handleLike = async (reportId) => {
-    if (!user) {
-      toast.error('Please login to like reports');
-      return;
-    }
 
-    try {
-      // Store original state for potential rollback
-      const originalReports = [...reports];
-      
-      // Optimistically update UI
-      setReports(prevReports => 
-        prevReports.map(report => {
-          if (report._id === reportId) {
-            const isCurrentlyLiked = report.likes?.some(like => like._id === user._id);
-            const newLiked = !isCurrentlyLiked;
-            
-            if (newLiked) {
-              // Add like
-              return {
-                ...report,
-                likes: [...(report.likes || []), { _id: user._id, likedAt: new Date(), id: user._id }]
-              };
-            } else {
-              // Remove like
-              return {
-                ...report,
-                likes: (report.likes || []).filter(like => like._id !== user._id)
-              };
-            }
-          }
-          return report;
-        })
-      );
-
-      // Call backend API
-      const response = await apiService.likeReport(reportId);
-      
-      // Update with actual data from backend - use the response data directly
-      setReports(prevReports => 
-        prevReports.map(report => {
-          if (report._id === reportId) {
-            // Use the backend response to update the likes array
-            const isLiked = response.data.isLiked;
-            
-            if (isLiked) {
-              // User liked the report - ensure only one like from this user
-              const existingLike = report.likes?.find(like => like._id === user._id);
-              if (!existingLike) {
-                return {
-                  ...report,
-                  likes: [...(report.likes || []), { _id: user._id, likedAt: new Date(), id: user._id }]
-                };
-              }
-            } else {
-              // User unliked the report - remove their like
-              return {
-                ...report,
-                likes: (report.likes || []).filter(like => like._id !== user._id)
-              };
-            }
-          }
-          return report;
-        })
-      );
-
-      toast.success('Thank you for your feedback!');
-    } catch (error) {
-      // Revert to original state on error
-      setReports(originalReports);
-      
-      toast.error('Failed to update like. Please try again.');
-      console.error('Like error:', error);
-    }
-  };
-
-  const handleQuickReport = async (type) => {
-  if (!user) {
-    toast.error('Please login to report issues');
-    return;
-  }
-
-  const newReport = {
-    type,
-    title: `Quick report: ${type}`,
-    description: `Quick report: ${type}`,
-    severity: 'medium',
-    location: {
-      address: 'Current Location',
-      coordinates: [mapCenter.lng, mapCenter.lat], // GeoJSON [lng, lat]
-      city: '', // fill as needed
-      state: '',
-      country: 'India'
-    },
-    reportedBy: user._id // or user.id, depending on your auth
-  };
-
-  try {
-    const res = await apiService.post('/reports', newReport);
-    setReports(prev => [res.data, ...prev]);
-    setShowQuickReport(false);
-    toast.success('Report submitted! +10 points earned');
-  } catch (err) {
-    toast.error('Failed to submit report');
-  }
-};
 
   const openComments = async (report) => {
     try {
@@ -460,57 +375,133 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-slate-50 pt-4">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Live Traffic Map</h1>
-              <p className="text-slate-600">Real-time traffic conditions and incident reports</p>
+        <div className="mb-3 relative">
+          {/* Ultra Compact Live Map Hero Section */}
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 shadow-lg border border-white/10">
+            {/* Animated Background Elements */}
+            <div className="absolute inset-0">
+              {/* Main gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-blue-900/90 to-indigo-900/90"></div>
+              
+              {/* Subtle grid pattern */}
+              <div className="absolute inset-0 opacity-15">
+                <div className="absolute top-0 left-0 w-full h-full" style={{
+                  backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)',
+                  backgroundSize: '16px 16px'
+                }}></div>
+              </div>
+              
+              {/* Floating geometric shapes */}
+              <div className="absolute top-4 left-4 w-1.5 h-1.5 bg-blue-400/25 rounded-full animate-pulse"></div>
+              <div className="absolute top-8 right-8 w-1 h-1 bg-cyan-400/30 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+              <div className="absolute bottom-4 left-6 w-2 h-2 bg-indigo-400/25 rounded-full animate-pulse" style={{animationDelay: '2s'}}></div>
+              
+              {/* Glowing orbs */}
+              <div className="absolute top-1/4 left-1/4 w-16 h-16 bg-blue-500/8 rounded-full blur-xl animate-pulse"></div>
+              <div className="absolute bottom-1/4 right-1/4 w-20 h-20 bg-indigo-500/8 rounded-full blur-xl animate-pulse" style={{animationDelay: '1.5s'}}></div>
             </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handleLocationClick}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Crosshair className="h-4 w-4" />
-                <span>My Location</span>
-              </button>
-              {user && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowQuickReport(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-lg"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Quick Report</span>
-                </motion.button>
-              )}
+            
+            {/* Content */}
+            <div className="relative z-10 p-3 lg:p-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                {/* Left side - Main content */}
+                <div className="flex-1">
+                  {/* Icon and Title */}
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="relative">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                        <Navigation className="h-4 w-4 text-white" />
+                      </div>
+                      {/* Animated ring */}
+                      <div className="absolute inset-0 w-8 h-8 border border-blue-400/25 rounded-lg animate-ping"></div>
+                    </div>
+                    
+                    <div>
+                      <h1 className="text-2xl lg:text-3xl font-black text-white mb-1 drop-shadow-lg bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
+                        Live Traffic Map
+                      </h1>
+                      <p className="text-sm lg:text-base text-blue-200 font-medium max-w-md leading-relaxed">
+                        Real-time traffic intelligence
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Live Stats */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <div className="flex items-center space-x-1 bg-white/8 backdrop-blur-sm rounded-md px-1.5 py-1 border border-white/15">
+                      <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-white text-xs font-medium">Live</span>
+                    </div>
+                    <div className="flex items-center space-x-1 bg-white/8 backdrop-blur-sm rounded-md px-1.5 py-1 border border-white/15">
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                      <span className="text-white text-xs font-medium">Real-time</span>
+                    </div>
+                    <div className="flex items-center space-x-1 bg-white/8 backdrop-blur-sm rounded-md px-1.5 py-1 border border-white/15">
+                      <div className="w-1 h-1 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+                      <span className="text-white text-xs font-medium">Smart</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Right side - Action buttons */}
+                <div className="flex flex-col space-y-1.5 lg:space-y-0 lg:space-x-1.5 lg:flex-row">
+                  {/* My Location Button */}
+                  <button
+                    onClick={handleLocationClick}
+                    className="group flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-blue-500/20 border border-blue-400/30 hover:border-blue-300/50 transform hover:-translate-y-0.5"
+                  >
+                    <div className="p-1 bg-white/20 rounded-md group-hover:bg-white/30 transition-all duration-300">
+                      <Crosshair className="h-3 w-3" />
+                    </div>
+                    <span className="font-semibold text-xs">Location</span>
+                  </button>
+                  
+                  {/* Enhanced Filter Dropdown */}
+                  <div className="relative group">
+                    <button className="group flex items-center space-x-1.5 px-3 py-1.5 bg-white/8 backdrop-blur-sm text-white rounded-lg hover:bg-white/15 transition-all duration-300 shadow-md border border-white/15 hover:border-white/25 transform hover:-translate-y-0.5">
+                      <div className="p-1 bg-white/20 rounded-md group-hover:bg-white/30 transition-all duration-300">
+                        <Filter className="h-3 w-3" />
+                      </div>
+                      <span className="font-semibold text-xs">{filterOptions.find(opt => opt.value === activeFilter)?.label || 'All Reports'}</span>
+                      <svg className="w-3 h-3 transition-transform duration-300 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Enhanced Dropdown Menu */}
+                    <div className="absolute top-full left-0 mt-1.5 w-52 bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 transform group-hover:translate-y-0 translate-y-1">
+                      <div className="p-2.5">
+                        <div className="text-sm font-semibold text-slate-600 mb-2 px-2">Filter Reports</div>
+                        {filterOptions.map((option) => {
+                          const Icon = option.icon;
+                          return (
+                            <button
+                              key={option.value}
+                              onClick={() => setActiveFilter(option.value)}
+                              className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                                activeFilter === option.value
+                                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 shadow-sm'
+                                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                              }`}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                              <span>{option.label}</span>
+                              {activeFilter === option.value && (
+                                <div className="ml-auto w-1.5 h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          {filterOptions.map((option) => {
-            const Icon = option.icon;
-            return (
-              <motion.button
-                key={option.value}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveFilter(option.value)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeFilter === option.value
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{option.label}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+        {/* Remove the old Filter Bar section */}
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Map Area */}
@@ -519,66 +510,81 @@ useEffect(() => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+              className="bg-white rounded-3xl shadow-2xl border border-slate-200/60 overflow-hidden relative"
             >
-              <div className="h-96 lg:h-[600px]">
-                <GoogleMapComponent
-                  center={mapCenter}
-                  zoom={12}
-                  height="100%"
-                  reports={filteredReports.map(report => {
-                    // Use actual coordinates if available, otherwise use a default position
-                    let position;
-                    if (report.coordinates && report.coordinates.coordinates && 
-                        report.coordinates.coordinates.length === 2) {
-                      position = {
-                        lat: report.coordinates.coordinates[1], // Latitude
-                        lng: report.coordinates.coordinates[0]  // Longitude
+              {/* Enhanced Map Background Decoration */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-white to-purple-50/30 rounded-3xl"></div>
+              <div className="absolute top-4 right-4 w-32 h-32 bg-gradient-to-br from-blue-100/20 to-purple-100/20 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-4 left-4 w-24 h-24 bg-gradient-to-tr from-green-100/20 to-blue-100/20 rounded-full blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <div className="h-96 lg:h-[600px]">
+                  <GoogleMapComponent
+                    center={mapCenter}
+                    zoom={12}
+                    height="100%"
+                    reports={filteredReports.map(report => {
+                      // Use actual coordinates if available, otherwise use a default position
+                      let position;
+                      if (report.coordinates && report.coordinates.coordinates && 
+                          report.coordinates.coordinates.length === 2) {
+                        position = {
+                          lat: report.coordinates.coordinates[1], // Latitude
+                          lng: report.coordinates.coordinates[0]  // Longitude
+                        };
+                      } else {
+                        // Fallback to a position near the map center
+                        position = {
+                          lat: mapCenter.lat + (Math.random() - 0.5) * 0.1,
+                          lng: mapCenter.lng + (Math.random() - 0.5) * 0.1
+                        };
+                      }
+                      
+                      return {
+                        id: report._id || report.id,
+                        type: report.type,
+                        position: position,
+                        title: report.type.charAt(0).toUpperCase() + report.type.slice(1),
+                        description: report.description,
+                        severity: report.severity,
+                        timestamp: new Date(report.createdAt).toLocaleString(),
+                        verified: report.status === 'verified',
+                        reportedBy: report.reportedBy?.name || 'Anonymous'
                       };
-                    } else {
-                      // Fallback to a position near the map center
-                      position = {
-                        lat: mapCenter.lat + (Math.random() - 0.5) * 0.1,
-                        lng: mapCenter.lng + (Math.random() - 0.5) * 0.1
-                      };
-                    }
-                    
-                    return {
-                      id: report._id || report.id,
-                      type: report.type,
-                      position: position,
-                      title: report.type.charAt(0).toUpperCase() + report.type.slice(1),
-                      description: report.description,
-                      severity: report.severity,
-                      timestamp: new Date(report.createdAt).toLocaleString(),
-                      verified: report.status === 'verified',
-                      reportedBy: report.reportedBy?.name || 'Anonymous'
-                    };
-                  })}
-                />
-              </div>
+                    })}
+                  />
+                </div>
 
-              {/* Map Controls */}
-              <div className="p-4 border-t border-slate-200 bg-slate-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm text-slate-600">Live Updates</span>
+                {/* Enhanced Map Controls */}
+                <div className="p-6 border-t border-slate-200/60 bg-gradient-to-r from-slate-50/80 to-white/80 backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-pulse shadow-lg"></div>
+                        <span className="text-sm font-semibold text-slate-700">Live Updates</span>
+                      </div>
+                      <div className="text-sm text-slate-600 bg-white/80 px-3 py-1.5 rounded-full border border-slate-200/60">
+                        Last updated: 30 seconds ago
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-500">
-                      Last updated: 30 seconds ago
+                    <div className="flex items-center space-x-3">
+                      <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200/60 text-sm font-medium text-slate-700 hover:bg-white hover:shadow-md transition-all duration-200"
+                      >
+                        <Filter className="h-4 w-4" />
+                        <span>Filters</span>
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                      >
+                        <Navigation className="h-4 w-4" />
+                        <span>Navigate</span>
+                      </motion.button>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button className="flex items-center space-x-2 px-3 py-1 bg-white rounded-lg border border-slate-200 text-sm hover:bg-slate-50">
-                      <Filter className="h-4 w-4" />
-                      <span>Filters</span>
-                    </button>
-                    <button className="flex items-center space-x-2 px-3 py-1 bg-white rounded-lg border border-slate-200 text-sm hover:bg-slate-50">
-                      <Navigation className="h-4 w-4" />
-                      <span>Navigate</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -587,323 +593,274 @@ useEffect(() => {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-r from-blue-500 to-green-500 rounded-2xl p-6 text-white"
-            >
-              <h3 className="font-semibold mb-2">Quick Report</h3>
-              <p className="text-sm text-blue-100 mb-4">See something? Report it instantly</p>
-              {user ? (
-                <button 
-                  onClick={() => setShowQuickReport(true)}
-                  className="w-full py-3 bg-white text-blue-600 rounded-xl font-medium hover:bg-blue-50 transition-colors"
-                >
-                  Report Issue
-                </button>
-              ) : (
-                <button 
-                  onClick={() => toast.error('Please login to report issues')}
-                  className="w-full py-3 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors"
-                >
-                  Login to Report
-                </button>
-              )}
-            </motion.div>
-
-            {/* Reports List */}
+            {/* Enhanced Reports List */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6"
+              className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6 relative overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Recent Reports</h2>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-slate-500">
-                    {Array.isArray(filteredReports) ? filteredReports.length : 0} active
-                  </span>
-                  <button
-                    onClick={loadReports}
-                    disabled={isRefreshing}
-                    className="p-1 text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Refresh reports"
-                  >
-                    <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
+              {/* Background decoration */}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-100/30 to-purple-100/30 rounded-full -translate-y-12 translate-x-12 blur-2xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Live Reports</h2>
+                    <p className="text-sm text-slate-500 mt-1">Real-time traffic updates</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                      {Array.isArray(filteredReports) ? filteredReports.length : 0} active
+                    </span>
+                    <motion.button
+                      onClick={loadReports}
+                      disabled={isRefreshing}
+                      whileHover={{ scale: 1.1, rotate: 180 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh reports"
+                    >
+                      <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </motion.button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                <AnimatePresence>
-                  {filteredReports.map((report, index) => {
-                    const Icon = getIconForType(report.type);
-                    return (
-                      <motion.div
-                        key={report._id || report.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                        onClick={() => {
-                          setSelectedReport(report);
-                          setShowReportDetail(true);
-                          // Track view when report is clicked
-                          if (user) {
-                            // Update local state to increment view count
-                            setReports(prevReports => 
-                              prevReports.map(r => {
-                                if (r._id === report._id || r.id === report.id) {
-                                  return {
-                                    ...r,
-                                    views: (r.views || 0) + 1
-                                  };
-                                }
-                                return r;
-                              })
-                            );
-                          }
-                        }}
-                        className="relative bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div className="flex flex-col items-center space-y-2">
-                            <div className={`p-2 rounded-lg ${getColorForSeverity(report.severity)}`}>
-                              <Icon className="h-4 w-4" />
+                <div className="space-y-3 h-96 lg:h-[600px] overflow-y-auto custom-scrollbar">
+                  <AnimatePresence>
+                    {filteredReports.map((report, index) => {
+                      const Icon = getIconForType(report.type);
+                      return (
+                        <motion.div
+                          key={report._id || report.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.4, delay: index * 0.1 }}
+                          onClick={() => {
+                            // Increment view count when report is clicked
+                            handleViewIncrement(report._id || report.id);
+                            setSelectedReport(report);
+                            setShowReportDetail(true);
+                          }}
+                          className="group relative bg-gradient-to-br from-slate-50 to-white rounded-xl p-4 hover:from-slate-100 hover:to-white transition-all duration-300 cursor-pointer border border-slate-200/60 hover:border-slate-300/60 hover:shadow-lg hover:-translate-y-1"
+                        >
+                          {/* Compact Report Card Design */}
+                          <div className="flex items-start space-x-3">
+                            {/* Compact Icon Section */}
+                            <div className="flex flex-col items-center space-y-2">
+                              <div className={`p-2 rounded-lg ${getColorForSeverity(report.severity)} shadow-sm group-hover:shadow-md transition-all duration-300`}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              
+                              {/* Compact Location Button */}
+                              <LocationButton 
+                                location={report.location} 
+                                variant="floating" 
+                                size="tiny"
+                                className="group-hover:scale-110 transition-transform duration-300"
+                              />
                             </div>
                             
-                            {/* Location Button - Below triangle with space */}
-                            <LocationButton 
-                              location={report.location} 
-                              variant="floating" 
-                              size="tiny"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <h3 className="text-sm font-semibold text-slate-900 capitalize">
-                                {typeof report.type === 'string' ? report.type.replace('_', ' ') : 'Unknown'}
-                              </h3>
-                              <div className="flex items-center space-x-2">
-                                {/* Status Badge */}
-                                {report.status === 'Resolved' || report.isExpired ? (
-                                  <div className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
-                                    🟢 Resolved
-                                  </div>
-                                ) : (
-                                  <div className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-yellow-200 text-yellow-600">
-                                    ⏳ Pending
-                                  </div>
-                                )}
-                                
-                                {/* Expiry Time */}
-                                {report.expiresAt && (
-                                  <div className="text-xs text-slate-400">
-                                    {getTimeUntilExpiry(report.expiresAt)}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                                                        <p className="text-sm text-slate-600 mb-0.5">
-                              {(() => {
-                                if (typeof report.location === 'string') {
-                                  return report.location;
-                                } else if (report.location && typeof report.location === 'object') {
-                                  return report.location.address || 'Location not specified';
-                                } else {
-                                  return 'Location not specified';
-                                }
-                              })()}
-                            </p>
-                            
-                            <p className="text-xs text-slate-500 line-clamp-2 mb-1">
-                              {typeof report.description === 'string' ? report.description : 'No description'}
-                            </p>
-                            
-                            {/* Poll Display */}
-                            <div className="mb-2">
-                              <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
-                                Community Poll
-                              </div>
-                              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-2 border border-blue-200">
-                                <div className="grid grid-cols-3 gap-1 mb-2">
-                                  <div className="text-center">
-                                    <div className="text-sm">🚨</div>
-                                    <div className="text-xs font-medium text-red-600">{report.poll?.stillThere || 0}</div>
-                                    <div className="text-xs text-slate-600">Still There</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-sm">✅</div>
-                                    <div className="text-xs font-medium text-green-600">{report.poll?.resolved || 0}</div>
-                                    <div className="text-xs text-slate-600">Resolved</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-sm">❌</div>
-                                    <div className="text-xs font-medium text-red-600">{report.poll?.notSure || 0}</div>
-                                    <div className="text-xs text-slate-600">Fake Report</div>
-                                  </div>
-                                </div>
-                                
-                                {/* Voting Buttons */}
-                                {user && report.status === 'Pending' && !report.isExpired && (
-                                  <div className="grid grid-cols-3 gap-1">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePollVote(report._id || report.id, 'stillThere');
-                                      }}
-                                      disabled={votingReports.has(report._id || report.id)}
-                                      className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
-                                    >
-                                      {votingReports.has(report._id || report.id) ? 'Voting...' : '🚨 Still There'}
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePollVote(report._id || report.id, 'resolved');
-                                      }}
-                                      disabled={votingReports.has(report._id || report.id)}
-                                      className="px-2 py-1 text-xs bg-green-100 text-green-600 rounded hover:bg-green-200 disabled:opacity-50 transition-all duration-200 border border-green-200 hover:border-green-300"
-                                    >
-                                      {votingReports.has(report._id || report.id) ? 'Voting...' : '✅ Resolved'}
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePollVote(report._id || report.id, 'notSure');
-                                      }}
-                                      disabled={votingReports.has(report._id || report.id)}
-                                      className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
-                                    >
-                                      {votingReports.has(report._id || report.id) ? 'Voting...' : '❌ Fake Report'}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-
-                            
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-400">
-                                by {typeof report.reportedBy === 'object' && report.reportedBy?.name ? report.reportedBy.name : 'Anonymous'}
-                              </span>
-                              <div className="flex items-center space-x-3">
-                                <motion.button
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleLike(report._id || report.id);
-                                  }}
-                                  className={`flex items-center space-x-1 text-xs ${
-                                    report.likes?.some(like => like.user === user?._id) ? 'text-red-500' : 'text-slate-500'
-                                  } hover:text-red-500 transition-colors`}
-                                >
-                                  <Heart className={`h-3 w-3 ${report.likes?.some(like => like._id === user?._id) ? 'fill-current' : ''}`} />
-                                  <span>{Array.isArray(report.likes) ? report.likes.length : (report.likes || 0)}</span>
-                                </motion.button>
-                                
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openComments(report);
-                                  }}
-                                  disabled={isAddingComment}
-                                  className="flex items-center space-x-1 text-xs text-green-600 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="View Comments"
-                                >
-                                  <MessageCircle className="h-3 w-3" />
-                                  <span>{Array.isArray(report.comments) ? report.comments.length : 0}</span>
-                                </button>
-                                
-                                <div className="flex items-center space-x-1 text-xs text-slate-500">
-                                  <Eye className="h-3 w-3" />
-                                  <span>{report.views || 0}</span>
+                            {/* Compact Content Section */}
+                            <div className="flex-1 min-w-0">
+                              {/* Compact Header with Status */}
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-bold text-slate-900 capitalize bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                                  {typeof report.type === 'string' ? report.type.replace('_', ' ') : 'Unknown'}
+                                </h3>
+                                <div className="flex items-center space-x-2">
+                                  {/* Compact Status Badge */}
+                                  {report.status === 'Fake Report' ? (
+                                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-red-100 to-red-200 text-red-700 border border-red-200">
+                                      <div className="w-1 h-1 bg-red-500 rounded-full mr-1 animate-pulse"></div>
+                                      Fake Report
+                                    </div>
+                                  ) : report.status === 'Resolved' || report.isExpired ? (
+                                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200">
+                                      <div className="w-1 h-1 bg-green-500 rounded-full mr-1 animate-pulse"></div>
+                                      Resolved
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-700 border border-yellow-200">
+                                      <div className="w-1 h-1 bg-yellow-500 rounded-full mr-1 animate-pulse"></div>
+                                      Active
+                                    </div>
+                                  )}
+                                  
+                                  {/* Compact Expiry Time */}
+                                  {report.expiresAt && (
+                                    <div className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                      {getTimeUntilExpiry(report.expiresAt)}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
+                              
+                              {/* Compact Location */}
+                              <p className="text-xs text-slate-700 mb-1.5 font-medium">
+                                {(() => {
+                                  if (typeof report.location === 'string') {
+                                    return report.location;
+                                  } else if (report.location && typeof report.location === 'object') {
+                                    return report.location.address || 'Location not specified';
+                                  } else {
+                                    return 'Location not specified';
+                                  }
+                                })()}
+                              </p>
+                              
+                              {/* Compact Description */}
+                              <div className="text-xs text-slate-600 line-clamp-2 mb-3 leading-relaxed">
+                                {typeof report.description === 'string' ? 
+                                  report.description.split('\n').map((line, index) => {
+                                    if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                                      // This is a heading - make it bold
+                                      return (
+                                        <span key={index} className="font-bold text-slate-700">
+                                          {line.trim()}
+                                        </span>
+                                      );
+                                    } else if (line.trim()) {
+                                      // This is content
+                                      return (
+                                        <span key={index}>
+                                          {line.trim()}
+                                        </span>
+                                      );
+                                    } else {
+                                      // Empty line - add space
+                                      return <span key={index}> </span>;
+                                    }
+                                  })
+                                  : 'No description provided'
+                                }
+                              </div>
+                              
+                              {/* Compact Community Poll */}
+                              <div className="mb-3">
+                                <div className="text-xs font-semibold text-slate-700 mb-2 flex items-center">
+                                  <div className="w-1.5 h-1.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mr-1.5"></div>
+                                  Community Poll
+                                </div>
+                                <div className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 rounded-lg p-2 border border-blue-200/60 backdrop-blur-sm">
+                                  <div className="grid grid-cols-3 gap-1 mb-2">
+                                    <div className="text-center">
+                                      <div className="text-sm mb-0.5">🚨</div>
+                                      <div className="text-xs font-bold text-red-600">{report.poll?.stillThere || 0}</div>
+                                      <div className="text-xs text-slate-600">Still There</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-sm mb-0.5">✅</div>
+                                      <div className="text-xs font-bold text-green-600">{report.poll?.resolved || 0}</div>
+                                      <div className="text-xs text-slate-600">Resolved</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-sm mb-0.5">❌</div>
+                                      <div className="text-xs font-bold text-red-600">{report.poll?.fake || 0}</div>
+                                      <div className="text-xs text-slate-600">Fake</div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Compact Voting Buttons */}
+                                  {user && report.status === 'Active' && !report.isExpired && (
+                                    <div className="grid grid-cols-3 gap-1">
+                                      <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePollVote(report._id || report.id, 'stillThere');
+                                        }}
+                                        disabled={votingReports.has(report._id || report.id)}
+                                        className="px-2 py-1 text-xs bg-gradient-to-r from-red-100 to-red-200 text-red-700 rounded hover:from-red-200 hover:to-red-300 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300 font-medium shadow-sm"
+                                      >
+                                        {votingReports.has(report._id || report.id) ? 'Voting...' : '🚨 Still There'}
+                                      </motion.button>
+                                      <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePollVote(report._id || report.id, 'resolved');
+                                        }}
+                                        disabled={votingReports.has(report._id || report.id)}
+                                        className="px-2 py-1 text-xs bg-gradient-to-r from-green-100 to-green-200 text-green-700 rounded hover:from-green-200 hover:to-green-300 disabled:opacity-50 transition-all duration-200 border border-green-200 hover:border-green-300 font-medium shadow-sm"
+                                      >
+                                        {votingReports.has(report._id || report.id) ? 'Voting...' : '✅ Resolved'}
+                                      </motion.button>
+                                      <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePollVote(report._id || report.id, 'fake');
+                                        }}
+                                        disabled={votingReports.has(report._id || report.id)}
+                                        className="px-2 py-1 text-xs bg-gradient-to-r from-red-100 to-red-200 text-red-700 rounded hover:from-red-200 hover:to-red-300 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300 font-medium shadow-sm"
+                                      >
+                                        {votingReports.has(report._id || report.id) ? 'Voting...' : '❌ Fake'}
+                                      </motion.button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Compact Footer */}
+                              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                                <span className="text-xs text-slate-500 font-medium">
+                                  by {typeof report.reportedBy === 'object' && report.reportedBy?.name ? report.reportedBy.name : 'Anonymous'}
+                                </span>
+                                <div className="flex items-center space-x-3">
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLike(report._id || report.id);
+                                    }}
+                                    className={`flex items-center space-x-1 text-xs font-medium ${
+                                      isUserLiked(report._id || report.id) ? 'text-red-500' : 'text-slate-500'
+                                    } hover:text-red-500 transition-all duration-200 hover:bg-red-50 px-1.5 py-0.5 rounded`}
+                                  >
+                                    <Heart className={`h-3 w-3 ${isUserLiked(report._id || report.id) ? 'fill-current' : ''}`} />
+                                    <span>{getLikeCount(report._id || report.id)}</span>
+                                  </motion.button>
+                                  
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openComments(report);
+                                    }}
+                                    disabled={isAddingComment}
+                                    className="flex items-center space-x-1 text-xs font-medium text-green-600 hover:text-green-700 transition-all duration-200 hover:bg-green-50 px-1.5 py-0.5 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="View Comments"
+                                  >
+                                    <MessageCircle className="h-3 w-3" />
+                                    <span>{Array.isArray(report.comments) ? report.comments.length : 0}</span>
+                                  </motion.button>
+                                  
+                                  <div className="flex items-center space-x-1 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    <Eye className="h-3 w-3" />
+                                    <span>{getViewCount(report._id || report.id)}</span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
               </div>
             </motion.div>
           </div>
         </div>
-
-        {/* Quick Report Modal */}
-        <AnimatePresence>
-          {showQuickReport && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowQuickReport(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-2xl p-6 max-w-md w-full"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Quick Report</h3>
-                  <button
-                    onClick={() => setShowQuickReport(false)}
-                    className="p-1 hover:bg-slate-100 rounded-lg"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                
-                <p className="text-sm text-slate-600 mb-4">What type of issue are you reporting?</p>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { type: 'accident', label: 'Accident', icon: AlertTriangle, color: 'red' },
-                    { type: 'police', label: 'Police', icon: Shield, color: 'blue' },
-                    { type: 'construction', label: 'Construction', icon: Construction, color: 'yellow' },
-                    { type: 'congestion', label: 'Traffic Jam', icon: Car, color: 'purple' }
-                  ].map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <motion.button
-                        key={option.type}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleQuickReport(option.type)}
-                        className={`p-4 rounded-xl border-2 border-${option.color}-200 hover:border-${option.color}-300 text-${option.color}-600 hover:bg-${option.color}-50 transition-all text-center`}
-                      >
-                        <Icon className="h-6 w-6 mx-auto mb-2" />
-                        <span className="text-sm font-medium">{option.label}</span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-                
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={() => setShowQuickReport(false)}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    Need detailed report? Go to Report Page →
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Report Detail Modal */}
         <AnimatePresence>
@@ -972,13 +929,17 @@ useEffect(() => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium text-slate-700">Status:</span>
-                      {selectedReport.status === 'Resolved' || selectedReport.isExpired ? (
+                      {selectedReport.status === 'Fake Report' ? (
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          🔴 Fake Report
+                        </span>
+                      ) : selectedReport.status === 'Resolved' || selectedReport.isExpired ? (
                         <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           🟢 Resolved
                         </span>
                       ) : (
                         <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          ⏳ Pending
+                          🟡 Active
                         </span>
                       )}
                     </div>
@@ -992,9 +953,31 @@ useEffect(() => {
                   {/* Description */}
                   <div>
                     <h4 className="text-lg font-semibold text-slate-900 mb-2">Description</h4>
-                    <p className="text-slate-700 bg-slate-50 rounded-lg p-4">
-                      {typeof selectedReport.description === 'string' ? selectedReport.description : 'No description provided'}
-                    </p>
+                    <div className="text-slate-700 bg-slate-50 rounded-lg p-4">
+                      {typeof selectedReport.description === 'string' ? 
+                        selectedReport.description.split('\n').map((line, index) => {
+                          if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                            // This is a heading - make it bold
+                            return (
+                              <div key={index} className="font-bold text-slate-800 mb-2 mt-3 first:mt-0">
+                                {line.trim()}
+                              </div>
+                            );
+                          } else if (line.trim()) {
+                            // This is content - add proper spacing
+                            return (
+                              <div key={index} className="mb-2">
+                                {line.trim()}
+                              </div>
+                            );
+                          } else {
+                            // Empty line - add spacing
+                            return <div key={index} className="mb-3"></div>;
+                          }
+                        })
+                        : 'No description provided'
+                      }
+                    </div>
                   </div>
 
                   {/* Photos */}
@@ -1089,12 +1072,12 @@ useEffect(() => {
                       </div>
                       <div className="text-center">
                         <div className="text-2xl mb-1">❌</div>
-                        <div className="text-lg font-bold text-red-600">{selectedReport.poll?.notSure || 0}</div>
-                        <div className="text-xs text-slate-600">Fake Report</div>
+                        <div className="text-lg font-bold text-red-600">{selectedReport.poll?.fake || 0}</div>
+                        <div className="text-xs text-slate-600">Fake</div>
                       </div>
                     </div>
                     {/* Voting Buttons */}
-                    {user && selectedReport.status === 'Pending' && !selectedReport.isExpired && (
+                    {user && selectedReport.status === 'Active' && !selectedReport.isExpired && (
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'stillThere')}
@@ -1111,26 +1094,34 @@ useEffect(() => {
                           {votingReports.has(selectedReport._id || selectedReport.id) ? 'Voting...' : '✅ Resolved'}
                         </button>
                         <button
-                          onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'notSure')}
+                          onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'fake')}
                           disabled={votingReports.has(selectedReport._id || selectedReport.id)}
                           className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
                         >
-                          {votingReports.has(selectedReport._id || selectedReport.id) ? 'Voting...' : '❌ Fake Report'}
+                          {votingReports.has(selectedReport._id || selectedReport.id) ? 'Voting...' : '❌ Fake'}
                         </button>
                       </div>
                     )}
                     {/* Poll Statistics */}
                     <div className="text-center text-sm text-slate-600 mt-3 pt-3 border-t border-blue-200">
                       {(() => {
-                        const totalVotes = (selectedReport.poll?.stillThere || 0) + (selectedReport.poll?.resolved || 0) + (selectedReport.poll?.notSure || 0);
+                        const totalVotes = (selectedReport.poll?.stillThere || 0) + (selectedReport.poll?.resolved || 0) + (selectedReport.poll?.fake || 0);
                         const resolvedPercentage = totalVotes > 0 ? Math.round(((selectedReport.poll?.resolved || 0) / totalVotes) * 100) : 0;
+                        const fakePercentage = totalVotes > 0 ? Math.round(((selectedReport.poll?.fake || 0) / totalVotes) * 100) : 0;
                         return (
                           <>
                             Total Votes: <span className="font-medium text-blue-600">{totalVotes}</span>
                             {totalVotes > 0 && (
-                              <span className="ml-2">
-                                • Resolved: <span className="font-medium text-green-600">{resolvedPercentage}%</span>
-                              </span>
+                              <>
+                                <span className="ml-2">
+                                  • Resolved: <span className="font-medium text-green-600">{resolvedPercentage}%</span>
+                                </span>
+                                {fakePercentage > 0 && (
+                                  <span className="ml-2">
+                                    • Fake: <span className="font-medium text-red-600">{fakePercentage}%</span>
+                                  </span>
+                                )}
+                              </>
                             )}
                           </>
                         );

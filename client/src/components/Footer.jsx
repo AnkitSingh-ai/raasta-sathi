@@ -55,8 +55,8 @@ export function Footer() {
             <ul className="space-y-1.5 sm:space-y-2">
               <li><Link to="/terms" className="text-slate-300 hover:text-white transition-colors text-sm sm:text-base">Terms & Conditions</Link></li>
               <li><Link to="/privacy" className="text-slate-300 hover:text-white transition-colors text-sm sm:text-base">Privacy Policy</Link></li>
-              <li><a href="#" className="text-slate-300 hover:text-white transition-colors text-sm sm:text-base">Cookie Policy</a></li>
-              <li><a href="#" className="text-slate-300 hover:text-white transition-colors text-sm sm:text-base">Disclaimer</a></li>
+              <li><Link to="/cookies" className="text-slate-300 hover:text-white transition-colors text-sm sm:text-base">Cookie Policy</Link></li>
+              <li><Link to="/disclaimer" className="text-slate-300 hover:text-white transition-colors text-sm sm:text-base">Disclaimer</Link></li>
             </ul>
           </div>
         </div>
@@ -82,7 +82,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="border-t border-slate-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center">
           <p className="text-slate-400 text-sm sm:text-base">
-            © {currentYear} Raasta Sathi. All rights reserved. Made with ❤️ for safer roads.
+            © {currentYear} Raasta Sathi. All rights reserved.
           </p>
         </div>
       </div>

@@ -25,7 +25,7 @@ export function DashboardPage() {
   const stats = [
     { label: 'Total Reports', value: '1,234', icon: AlertTriangle, color: 'blue' },
     { label: 'Verified Today', value: '89', icon: CheckCircle, color: 'green' },
-    { label: 'Pending Review', value: '56', icon: Clock, color: 'yellow' },
+    { label: 'Active Reports', value: '56', icon: Clock, color: 'yellow' },
     { label: 'Active Officers', value: '24', icon: Users, color: 'purple' }
   ];
 

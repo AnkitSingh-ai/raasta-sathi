@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { ReportProvider } from './contexts/ReportContext';
 import { Header } from './components/Header';
 import { ServiceRequestNotification } from './components/ServiceRequestNotification';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -16,24 +17,30 @@ import { DashboardPage } from './pages/DashboardPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { CookiePolicyPage } from './pages/CookiePolicyPage';
+import { DisclaimerPage } from './pages/DisclaimerPage';
 import { HelperPage } from './pages/HelperPage';
 import { ServiceProviderPage } from './pages/ServiceProviderPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { PathScanPage } from './pages/PathScanPage';
 import { SearchPage } from './pages/SearchPage';
 import { MyReportsPage } from './pages/MyReportPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
  
 
 function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <Router>
+        <ReportProvider>
+          <Router>
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/cookies" element={<CookiePolicyPage />} />
+              <Route path="/disclaimer" element={<DisclaimerPage />} />
               <Route path="/*" element={
                 <>
                   <Header />
@@ -42,6 +49,7 @@ function App() {
                       <Route path="/" element={<HomePage />} />
                       <Route path="/map" element={<MapPage />} />
                       <Route path="/search" element={<SearchPage />} />
+                      <Route path="/leaderboard" element={<LeaderboardPage />} />
                       <Route path="/report" element={
                         <ProtectedRoute>
                           <ReportPage />
@@ -116,6 +124,7 @@ function App() {
             />
           </div>
         </Router>
+        </ReportProvider>
       </AuthProvider>
     </LanguageProvider>
   );

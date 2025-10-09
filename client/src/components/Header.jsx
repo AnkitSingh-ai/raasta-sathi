@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Navigation, MapPin, Globe2, User, Menu, X, LogOut, Bell, Settings, Search, Route, HelpCircle, Award, Trophy, BarChart3, Shield, RefreshCw, Eye, MessageCircle } from 'lucide-react';
+import { Navigation, MapPin, Globe2, User, Menu, X, LogOut, Bell, Settings, Search, Route, HelpCircle, Award, Trophy, BarChart3, Shield, RefreshCw, Eye, MessageCircle, AlertTriangle, AlertCircle, Wrench, Clock, Info, CheckCircle, Lightbulb, Plus } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../utils/api';
@@ -310,27 +310,17 @@ export function Header() {
     return () => clearInterval(interval);
   }, [user, userLocation]);
 
-  // Mock notifications based on user role
+  // Enhanced notifications based on user role and actual reports
   const getNotifications = () => {
     if (!user) return [];
 
     if (user.role === 'citizen') {
-      return [
-        {
-          id: 1,
-          type: 'accident',
-          message: 'Traffic accident reported 500m from your location',
-          time: '2 mins ago',
-          severity: 'high'
-        },
-        {
-          id: 2,
-          type: 'helper',
-          message: 'Emergency service request accepted by provider',
-          time: '15 mins ago',
-          severity: 'medium'
-        }
-      ];
+      // For citizens, we'll show actual reports in the notification dropdown
+      // The getNotifications function is now only used for non-citizen users
+      // Citizens will see actual reports from recentReports state
+      return [];
+
+
     }
 
     if (user.role === 'service_provider') {
@@ -389,22 +379,29 @@ export function Header() {
   };
 
   return (
-    <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 header-nav">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 sm:h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 focus:outline-none focus:ring-0">
+    <header className="bg-white/90 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50 header-nav shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 sm:h-18">
+          {/* Enhanced Logo */}
+          <Link to="/" className="flex items-center space-x-3 focus:outline-none focus:ring-0 group">
             <div className="relative">
-              <Navigation className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
-              <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 absolute -bottom-1 -right-1" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:shadow-xl group-hover:shadow-blue-500/40 transition-all duration-300 group-hover:scale-105">
+                <Navigation className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                <MapPin className="h-2 w-2 sm:h-3 sm:w-3 text-white" />
+              </div>
             </div>
-            <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-              Raasta Sathi
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-slate-800 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Raasta Sathi
+              </span>
+              <span className="text-xs text-slate-500 font-medium -mt-1">Smart Traffic Solutions</span>
+            </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-4 lg:space-x-6 header-nav">
+          {/* Enhanced Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-0.5 lg:space-x-1 header-nav">
             {navItems.map((item) => {
               if (!canAccessRoute(item)) return null;
               
@@ -412,47 +409,66 @@ export function Header() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`text-sm font-medium transition-colors hover:text-blue-600 flex items-center space-x-1 focus:outline-none focus:ring-0 ${
+                  className={`group relative px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-0 ${
                     location.pathname === item.path
-                      ? 'text-blue-600'
-                      : 'text-slate-600'
+                      ? 'text-blue-600 font-bold'
+                      : 'text-slate-700 hover:text-blue-600'
                   }`}
                 >
-                  {item.icon && <item.icon className="h-4 w-4" />}
-                  <span>{item.label}</span>
+                  <div className="flex items-center space-x-2">
+                    {item.icon && (
+                      <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                        location.pathname === item.path 
+                          ? 'bg-blue-100' 
+                          : 'bg-slate-100 group-hover:bg-blue-100'
+                      }`}>
+                        <item.icon className={`h-4 w-4 ${
+                          location.pathname === item.path ? 'text-blue-600' : 'text-slate-600 group-hover:text-blue-600'
+                        }`} />
+                      </div>
+                    )}
+                    <span className="font-semibold">{item.label}</span>
+                  </div>
+                  {location.pathname === item.path && (
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+                  )}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Right side controls */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* Language Toggle */}
+          {/* Enhanced Right side controls */}
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            {/* Enhanced Language Toggle */}
             <button
               onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
-              className="flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
+              className="group flex items-center space-x-2 px-3 py-2 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 transition-all duration-300 hover:scale-105 shadow-sm hover:shadow-md border border-slate-200/60"
             >
-              <Globe2 className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="text-xs sm:text-sm font-medium">{language.toUpperCase()}</span>
+              <div className="p-1.5 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg group-hover:from-blue-200 group-hover:to-indigo-200 transition-all duration-300">
+                <Globe2 className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+              </div>
+              <span className="text-xs sm:text-sm font-semibold text-slate-700">{language.toUpperCase()}</span>
             </button>
 
-            {/* Notifications */}
+            {/* Enhanced Notifications */}
             {user && (
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="group relative p-2.5 sm:p-3 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-300 hover:scale-105 shadow-sm hover:shadow-md border border-slate-200/60"
                 >
-                  <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <div className="p-1.5 bg-gradient-to-br from-red-100 to-pink-100 rounded-lg group-hover:from-red-200 group-hover:to-pink-200 transition-all duration-300">
+                    <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
                   {user.role === 'citizen' ? (
                     recentReports.length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-pulse flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse flex items-center justify-center shadow-lg">
                         <span className="text-xs text-white font-bold">{recentReports.length}</span>
                       </span>
                     )
                   ) : (
                     userNotifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-pulse"></span>
+                      <span className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse shadow-lg"></span>
                     )
                   )}
                 </button>
@@ -464,13 +480,13 @@ export function Header() {
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="font-semibold text-slate-900 text-sm sm:text-base">
-                            {user.role === 'citizen' ? 'Recent Reports Near You' : 'Notifications'}
+                            {user.role === 'citizen' ? 'Reports Near You' : 'Notifications'}
                           </h3>
                           <p className="text-xs text-slate-500">
                             {user.role === 'citizen' ? 
                               (userLocation ? 
-                                'Traffic incidents within 5km radius' : 
-                                'Enable location or enter manually to see nearby reports'
+                                'Traffic incidents in your area with real-time distance tracking' : 
+                                'Enable location to see nearby reports'
                               ) : 
                              user.role === 'service_provider' ? 'Service requests' : 'System notifications'
                             }
@@ -478,9 +494,6 @@ export function Header() {
                         </div>
                         {user.role === 'citizen' && (
                           <div className="flex items-center space-x-2">
-                            <span className="text-xs text-slate-400">
-                              {userLocation ? '📍 Located' : '📍 Locating...'}
-                            </span>
                             <button
                               onClick={getUserLocation}
                               disabled={loadingReports}
@@ -530,19 +543,29 @@ export function Header() {
                     
                     <div className="max-h-64 overflow-y-auto">
                       {user.role === 'citizen' ? (
-                        // Show recent reports for citizens
+                        // Show actual reports for citizens with concise 2-line description
                         recentReports.length > 0 ? (
-                          recentReports.map((report) => (
-                            <div key={report._id} className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 cursor-pointer" onClick={() => handleOpenReportDetail(report)}>
-                              <div className="flex items-start space-x-2 sm:space-x-3">
-                                <div className={`w-2 h-2 rounded-full mt-2 ${
+                          recentReports.map((report, index) => (
+                            <div key={report._id || report.id} className="px-4 py-3 hover:bg-slate-50/80 border-b border-slate-100/60 last:border-b-0 transition-all duration-200 cursor-pointer group"
+                                 onClick={() => {
+                                   setShowNotifications(false);
+                                   // Open report detail modal or navigate
+                                   handleOpenReportDetail(report);
+                                 }}>
+                              <div className="flex items-start space-x-3">
+                                {/* Status Indicator */}
+                                <div className={`w-2 h-2 rounded-full mt-2.5 ${
                                   report.status === 'resolved' ? 'bg-green-500' :
                                   report.status === 'in_progress' ? 'bg-yellow-500' : 'bg-red-500'
                                 }`}></div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium text-slate-900">{report.title || report.type || 'Traffic Report'}</p>
-                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                
+                                {/* Report Content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-sm font-semibold text-slate-900 capitalize truncate">
+                                      {report.type ? report.type.replace('_', ' ') : 'Traffic Report'}
+                                    </h4>
+                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                       report.severity === 'high' ? 'bg-red-100 text-red-700' :
                                       report.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                                       'bg-green-100 text-green-700'
@@ -550,45 +573,42 @@ export function Header() {
                                       {report.severity || 'normal'}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-slate-600 mt-1">{report.type || 'Traffic Incident'}</p>
-                                  <div className="flex items-center space-x-2 sm:space-x-3 mt-2 text-xs text-slate-500">
+                                  
+                                  {/* Concise 2-line Description */}
+                                  {report.description && (
+                                    <p className="text-xs text-slate-600 mb-2 line-clamp-2 leading-relaxed">
+                                      {report.description}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Location and Distance */}
+                                  <div className="flex items-center justify-between text-xs text-slate-500">
                                     <span className="flex items-center space-x-1">
                                       <MapPin className="h-3 w-3" />
-                                      <span>{getDistanceText(report.distance)} away</span>
+                                      <span className="truncate max-w-32">
+                                        {report.location ? (typeof report.location === 'string' ? report.location : report.location.address) : 'Location N/A'}
+                                      </span>
                                     </span>
-                                    <span className="flex items-center space-x-1">
-                                      <Eye className="h-3 w-3" />
-                                      <span>{report.views || 0}</span>
-                                    </span>
-                                    <span className="flex items-center space-x-1">
-                                      <MessageCircle className="h-3 w-3" />
-                                      <span>{Array.isArray(report.comments) ? report.comments.length : 0}</span>
-                                    </span>
+                                    {report.distance && (
+                                      <span className="text-green-600 font-medium">
+                                        {typeof report.distance === 'number' ? `${report.distance.toFixed(1)} km` : report.distance}
+                                      </span>
+                                    )}
                                   </div>
-                                  {report.description && (
-                                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{report.description}</p>
-                                  )}
                                 </div>
+                                
+                                {/* Report Photo Preview */}
                                 {getMainPhoto(report) && (
                                   <div className="ml-2 relative">
                                     <img 
                                       src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/uploads/${getMainPhoto(report)}`}
                                       alt="Report photo"
-                                      className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded-lg"
+                                      className="w-12 h-12 object-cover rounded-lg border border-slate-200 group-hover:scale-105 transition-transform duration-200"
                                     />
                                     {hasMultiplePhotos(report) && (
-                                      <>
-                                        <div className="absolute -top-1 -right-1 bg-black bg-opacity-50 text-white text-xs px-1 py-0.5 rounded-full font-medium">
-                                          +{getPhotoCount(report) - 1} more
-                                        </div>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); handlePhotoGalleryOpen(report); }}
-                                          className="absolute -bottom-1 -left-1 bg-blue-600 text-white text-xs px-1 py-0.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                          title="View All Photos"
-                                        >
-                                          👁️
-                                        </button>
-                                      </>
+                                      <div className="absolute -top-1 -right-1 bg-black/70 text-white text-xs px-1 py-0.5 rounded-full font-medium">
+                                        +{getPhotoCount(report) - 1}
+                                      </div>
                                     )}
                                   </div>
                                 )}
@@ -641,118 +661,158 @@ export function Header() {
                           </div>
                         ))
                       )}
+                      
+                      {/* View All Reports Button for Citizens */}
+                      {user.role === 'citizen' && (
+                        <div className="px-3 sm:px-4 py-3 border-t border-slate-200">
+                          <Link
+                            to="/search"
+                            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 hover:scale-105"
+                            onClick={() => setShowNotifications(false)}
+                          >
+                            <Search className="h-4 w-4" />
+                            <span>View All Reports Near You</span>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* User Menu */}
+            {/* Enhanced User Menu */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2 p-1.5 sm:p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="group flex items-center space-x-3 p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg"
                 >
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center overflow-hidden">
-                    {user.avatar ? (
-                      <img 
-                        src={user.avatar} 
-                        alt="Profile" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                    )}
+                  <div className="relative">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg shadow-blue-500/25 group-hover:shadow-xl group-hover:shadow-blue-500/30 transition-all duration-300">
+                      {user.avatar ? (
+                        <img 
+                          src={user.avatar} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                      )}
+                    </div>
+                    {/* Online status indicator */}
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full border-2 border-white shadow-lg"></div>
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-slate-700">{user.name}</span>
+                  <div className="hidden sm:block text-left">
+                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">{user.name}</span>
+                    <div className="text-xs text-slate-500 capitalize">{user.role}</div>
+                  </div>
                 </button>
 
-                {/* User Dropdown */}
+                {/* Enhanced User Dropdown */}
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                    <div className="px-3 sm:px-4 py-3 border-b border-slate-200">
+                  <div className="absolute right-0 mt-3 w-72 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-blue-900/20 border border-slate-200/60 py-3 z-50 animate-in slide-in-from-top-2 duration-300">
+                    <div className="px-4 py-4 border-b border-slate-200/60">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center overflow-hidden">
-                          {user.avatar ? (
-                            <img 
-                              src={user.avatar} 
-                              alt="Profile" 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <User className="h-5 w-5 text-white" />
-                          )}
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                            {user.avatar ? (
+                              <img 
+                                src={user.avatar} 
+                                alt="Profile" 
+                                className="w-full h-full object-cover rounded-2xl"
+                              />
+                            ) : (
+                              <User className="h-6 w-6 text-white" />
+                            )}
+                          </div>
+                          {/* Online status indicator */}
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full border-2 border-white shadow-lg"></div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-                          <p className="text-xs text-slate-500">{getUserRoleDisplay()}</p>
+                        <div className="flex-1">
+                          <p className="text-base font-bold text-slate-900">{user.name}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-xs text-slate-500 capitalize bg-slate-100 px-2 py-1 rounded-lg font-medium">{user.role}</span>
+                            <span className="text-xs text-green-600 font-medium">● Online</span>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="py-1">
+                    <div className="py-2">
                       <Link
                         to="/profile"
-                        className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        className="group flex items-center space-x-3 px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 hover:scale-105 mx-2"
                         onClick={() => setShowUserMenu(false)}
                       >
-                        <User className="h-4 w-4" />
-                        <span>Profile</span>
+                        <div className="p-2 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl group-hover:from-blue-200 group-hover:to-indigo-200 transition-all duration-200">
+                          <User className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <span className="font-medium">Profile</span>
                       </Link>
                       
                       {user.role === 'citizen' && (
                         <Link
                           to="/my-reports"
-                          className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          className="group flex items-center space-x-3 px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 hover:scale-105 mx-2"
                           onClick={() => setShowUserMenu(false)}
                         >
-                          <BarChart3 className="h-4 w-4" />
-                          <span>My Reports</span>
+                          <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl group-hover:from-green-200 group-hover:to-emerald-200 transition-all duration-200">
+                            <BarChart3 className="h-4 w-4 text-green-600" />
+                          </div>
+                          <span className="font-medium">My Reports</span>
                         </Link>
                       )}
 
                       {(user.role === 'police' || user.role === 'municipal') && (
                         <>
-                          <div className="px-3 sm:px-4 py-2">
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Quick Access</p>
+                          <div className="px-4 py-2 mx-2">
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide bg-slate-100 px-3 py-1 rounded-lg">Quick Access</p>
                           </div>
                           <Link
                             to="/dashboard"
-                            className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            className="group flex items-center space-x-3 px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 hover:scale-105 mx-2"
                             onClick={() => setShowUserMenu(false)}
                           >
-                            <Shield className="h-4 w-4" />
-                            <span>Authority Dashboard</span>
+                            <div className="p-2 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl group-hover:from-purple-200 group-hover:to-indigo-200 transition-all duration-200">
+                              <Shield className="h-4 w-4 text-purple-600" />
+                            </div>
+                            <span className="font-medium">Authority Dashboard</span>
                           </Link>
                           {user.role === 'municipal' && (
                             <Link
                               to="/analytics"
-                              className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                              className="group flex items-center space-x-3 px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 hover:scale-105 mx-2"
                               onClick={() => setShowUserMenu(false)}
                             >
-                              <BarChart3 className="h-4 w-4" />
-                              <span>Analytics & Reports</span>
+                              <div className="p-2 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-xl group-hover:from-indigo-200 group-hover:to-blue-200 transition-all duration-200">
+                                <BarChart3 className="h-4 w-4 text-indigo-600" />
+                              </div>
+                              <span className="font-medium">Analytics & Reports</span>
                             </Link>
                           )}
                           <Link
                             to="/notifications"
-                            className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            className="group flex items-center space-x-3 px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 hover:scale-105 mx-2"
                             onClick={() => setShowUserMenu(false)}
                           >
-                            <Bell className="h-4 w-4" />
-                            <span>Notifications</span>
+                            <div className="p-2 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl group-hover:from-yellow-200 group-hover:to-orange-200 transition-all duration-200">
+                              <Bell className="h-4 w-4 text-yellow-600" />
+                            </div>
+                            <span className="font-medium">Notifications</span>
                           </Link>
                         </>
                       )}
 
-                      <div className="border-t border-slate-200 my-2"></div>
+                      <div className="border-t border-slate-200/60 my-3 mx-2"></div>
                       <button
                         onClick={handleLogout}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                        className="group w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 rounded-xl transition-all duration-200 hover:scale-105 mx-2 flex items-center space-x-3"
                       >
-                        <LogOut className="h-4 w-4" />
-                        <span>Sign Out</span>
+                        <div className="p-2 bg-gradient-to-br from-red-100 to-pink-100 rounded-xl group-hover:from-red-200 group-hover:to-pink-200 transition-all duration-200">
+                          <LogOut className="h-4 w-4 text-red-600" />
+                        </div>
+                        <span className="font-medium">Sign Out</span>
                       </button>
                     </div>
                   </div>
@@ -761,58 +821,99 @@ export function Header() {
             ) : (
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm hover:shadow-md"
+                className="group inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
-                Sign In
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 bg-white/20 rounded-lg">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <span>Sign In</span>
+                </div>
               </Link>
             )}
 
-            {/* Mobile menu toggle */}
+            {/* Enhanced Mobile menu toggle */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-1.5 sm:p-2 rounded-md text-slate-600 hover:text-slate-900"
+              className="md:hidden group p-2.5 rounded-xl text-slate-600 hover:text-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg"
             >
-              {isMobileMenuOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Menu className="h-5 w-5 sm:h-6 sm:w-6" />}
+              {isMobileMenuOpen ? (
+                <X className="h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300 group-hover:scale-110" />
+              ) : (
+                <Menu className="h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300 group-hover:scale-110" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Enhanced Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-3 sm:py-4 border-t border-slate-200">
-            <nav className="space-y-1 sm:space-y-2 header-nav">
-              {navItems.map((item) => {
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="md:hidden py-4 border-t border-slate-200/60 bg-gradient-to-b from-white/95 to-blue-50/30"
+          >
+            <nav className="space-y-1 px-4">
+              {navItems.map((item, index) => {
                 if (!canAccessRoute(item)) return null;
                 
                 return (
-                  <Link
+                  <motion.div
                     key={item.path}
-                    to={item.path}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors focus:outline-none focus:ring-0 ${
-                      location.pathname === item.path
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
                   >
-                    {item.icon && <item.icon className="h-5 w-5" />}
-                    <span>{item.label}</span>
-                  </Link>
+                    <Link
+                      to={item.path}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`group flex items-center space-x-3 px-3 py-2 rounded-xl text-base font-medium transition-all duration-300 focus:outline-none focus:ring-0 ${
+                        location.pathname === item.path
+                          ? 'text-blue-600 font-bold bg-blue-50'
+                          : 'text-slate-700 hover:text-blue-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {item.icon && (
+                        <div className={`p-2 rounded-lg transition-all duration-300 ${
+                          location.pathname === item.path 
+                            ? 'bg-blue-100' 
+                            : 'bg-slate-100 group-hover:bg-blue-100'
+                        }`}>
+                          <item.icon className={`h-5 w-5 ${
+                            location.pathname === item.path ? 'text-blue-600' : 'text-slate-600 group-hover:text-blue-600'
+                          }`} />
+                        </div>
+                      )}
+                      <span className="font-semibold">{item.label}</span>
+                    </Link>
+                  </motion.div>
                 );
               })}
               {!user && (
-                <div className="pt-2 border-t border-slate-200">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
+                  className="pt-3 border-t border-slate-200/60"
+                >
                   <Link
                     to="/login"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="inline-flex items-center justify-center w-full px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
-                    Sign In
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 bg-white/20 rounded-lg">
+                        <User className="h-4 w-4" />
+                      </div>
+                      <span>Sign In</span>
+                    </div>
                   </Link>
-                </div>
+                </motion.div>
               )}
             </nav>
-          </div>
+          </motion.div>
         )}
 
 

@@ -55,7 +55,7 @@ router.get('/', protect, async (req, res, next) => {
 // @access  Private
 router.put('/:id/read', protect, async (req, res, next) => {
   try {
-    const notification = await findOne({
+    const notification = await Notification.findOne({
       _id: req.params.id,
       recipient: req.user.id
     });
@@ -85,7 +85,7 @@ router.put('/:id/read', protect, async (req, res, next) => {
 // @access  Private
 router.put('/read-all', protect, async (req, res, next) => {
   try {
-    await updateMany(
+    await Notification.updateMany(
       { recipient: req.user.id, isRead: false },
       { isRead: true, readAt: new Date() }
     );
@@ -104,7 +104,7 @@ router.put('/read-all', protect, async (req, res, next) => {
 // @access  Private
 router.delete('/:id', protect, async (req, res, next) => {
   try {
-    const notification = await findOne({
+    const notification = await Notification.findOne({
       _id: req.params.id,
       recipient: req.user.id
     });
@@ -140,7 +140,7 @@ router.post('/', protect, async (req, res, next) => {
       });
     }
 
-    const notification = await NotificationcreateNotification({
+    const notification = await Notification.createNotification({
       ...req.body,
       sender: req.user.id
     });

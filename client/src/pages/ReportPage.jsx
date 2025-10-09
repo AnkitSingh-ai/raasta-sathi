@@ -13,7 +13,10 @@ import {
   CheckCircle,
   Upload,
   X,
-  Loader2
+  Loader2,
+  Sparkles,
+  Wand2,
+  Edit3
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
@@ -21,6 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../utils/api';
 import LocationButton from '../components/LocationButton';
+import { generateTrafficReportDescription, generateTrafficReportDescriptionWithPhoto } from '../utils/geminiService';
 
 export function ReportPage() {
   const { t } = useLanguage();
@@ -40,6 +44,9 @@ export function ReportPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingReportId, setEditingReportId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiGeneratedDescription, setAiGeneratedDescription] = useState('');
+  const [showAIOptions, setShowAIOptions] = useState(false);
 
   // Refs for the file inputs
   const fileInputRef = useRef(null);
@@ -222,6 +229,66 @@ export function ReportPage() {
     if(cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
+  // AI Description Generation Functions
+  const handleGenerateAIDescription = async () => {
+    if (!selectedType || !location || !severity) {
+      toast.error('Please fill in the report type, location, and severity first');
+      return;
+    }
+
+    try {
+      setIsGeneratingAI(true);
+      
+      // Get the report type label (e.g., "Accident", "Traffic Jam", "Road Closure")
+      const reportTypeLabel = reportTypes.find(type => type.id === selectedType)?.label || selectedType;
+      
+      let generatedDescription;
+      
+      if (photos.length > 0) {
+        // Generate description with photo analysis
+        generatedDescription = await generateTrafficReportDescriptionWithPhoto(
+          reportTypeLabel,
+          location,
+          severity,
+          photos[0] // Use first photo for analysis
+        );
+      } else {
+        // Generate description without photo
+        generatedDescription = await generateTrafficReportDescription(
+          reportTypeLabel,
+          location,
+          severity
+        );
+      }
+      
+      setAiGeneratedDescription(generatedDescription);
+      setShowAIOptions(true);
+      toast.success('AI description generated successfully!');
+      
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error(error.message || 'Failed to generate AI description');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const handleUseAIDescription = () => {
+    setDescription(aiGeneratedDescription);
+    setShowAIOptions(false);
+    toast.success('AI description applied to your report!');
+  };
+
+  const handleEditAIDescription = () => {
+    setDescription(aiGeneratedDescription);
+    setShowAIOptions(false);
+    toast.success('AI description applied! You can now edit it further.');
+  };
+
+  const handleRegenerateAI = async () => {
+    await handleGenerateAIDescription();
+  };
+
   const handleUseCurrentLocation = () => {
   setIsFetchingLocation(true);
   if (navigator.geolocation) {
@@ -250,6 +317,13 @@ export function ReportPage() {
 
   if (!selectedType || !location || !description) {
     toast.error('Please fill in all required fields');
+    return;
+  }
+
+  // Check word limit
+  const wordCount = description.split(' ').filter(word => word.length > 0).length;
+  if (wordCount > 250) {
+    toast.error(`Description is too long. Please keep it under 250 words (currently ${wordCount} words)`);
     return;
   }
 
@@ -284,11 +358,7 @@ export function ReportPage() {
   formData.append('type', selectedType);
   formData.append('description', description);
   formData.append('severity', severity);
-  formData.append('reportedBy', user._id);
-  
-  // Generate title from type
-  const title = `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Report`;
-  formData.append('title', title);
+  // Note: reportedBy is set automatically by the server from the authenticated user
 
   // Prepare location data (without coordinates)
   const locationData = {
@@ -306,46 +376,25 @@ export function ReportPage() {
       !isNaN(coordinates.lng) &&
       coordinates.lat !== 0 && coordinates.lng !== 0) {
     
-    // Add coordinates as a separate field
-    const coordinatesData = {
-      type: 'Point',
-      coordinates: [coordinates.lng, coordinates.lat] // MongoDB expects [longitude, latitude]
-    };
-    formData.append('coordinates', JSON.stringify(coordinatesData));
-    console.log('📍 Including coordinates:', coordinatesData);
+    // Add coordinates as simple fields to avoid parsing issues
+    formData.append('coordinatesType', 'Point');
+    formData.append('coordinatesLng', coordinates.lng.toString());
+    formData.append('coordinatesLat', coordinates.lat.toString());
   } else {
-    console.log('📍 No valid coordinates, excluding coordinates field');
+    // No valid coordinates
   }
 
-  formData.append('location', JSON.stringify(locationData));
+  // Send location as simple fields to avoid parsing issues
+  formData.append('locationAddress', location);
+  formData.append('locationCountry', 'India');
 
   if (photos.length > 0) {
-    console.log('Adding photos to form data, count:', photos.length);
-    console.log('Photos to be sent:', photos);
     photos.forEach((photo, index) => {
-      console.log(`Appending photo ${index + 1}:`, photo.name, photo.size, photo.type);
       formData.append('photos', photo);
     });
-    
-    // Log the FormData contents
-    console.log('FormData contents:');
-    for (let [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(`FormData entry: ${key} = File(${value.name}, ${value.size} bytes, ${value.type})`);
-      } else {
-        console.log(`FormData entry: ${key} =`, value);
-      }
-    }
   }
 
-  console.log('Submitting report with data:', {
-    type: selectedType,
-    description: description,
-    severity: severity,
-    hasPhotos: photos.length > 0,
-    photoCount: photos.length,
-    user: user._id
-  });
+
 
   try {
     let response;
@@ -396,8 +445,30 @@ export function ReportPage() {
     }
   } catch (error) {
     console.error('Report submission error:', error);
-    const errorMessage = error.message || 'Failed to submit report. Please try again.';
-    toast.error(errorMessage);
+    
+    // Handle restriction error specifically
+    if (error.response?.status === 403 && error.response?.data?.restrictionDetails) {
+      const restrictionDetails = error.response.data.restrictionDetails;
+      const daysLeft = restrictionDetails.daysLeft;
+      
+      // Show restriction message with countdown
+      toast.error(
+        `You are restricted from posting new reports because of fake reports for ${daysLeft} more day(s).`,
+        {
+          duration: 8000,
+          style: {
+            background: '#fee2e2',
+            color: '#dc2626',
+            border: '1px solid #fecaca',
+            fontSize: '14px',
+            maxWidth: '400px'
+          }
+        }
+      );
+    } else {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to submit report. Please try again.';
+      toast.error(errorMessage);
+    }
   } finally {
     setIsSubmitting(false);
   }
@@ -419,322 +490,594 @@ export function ReportPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pt-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Enhanced Header Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          className="text-center mb-6"
         >
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
-        >
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">
-            {isEditing ? 'Edit Report' : 'Report Traffic Issue'}
-          </h1>
-          <p className="text-lg text-slate-600">
-            {isEditing 
-              ? 'Update your existing traffic report' 
-              : 'Help your community by reporting real-time traffic conditions'
-            }
-          </p>
+          <div className="relative">
+            {/* Background decorative elements */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-36 h-36 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"></div>
+            </div>
+            
+            <div className="relative z-10">
+              {/* Enhanced Header with Colored Background */}
+              <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-4 mb-4 shadow-xl border border-white/20 backdrop-blur-sm">
+                <div className="inline-flex items-center justify-center p-1.5 bg-white/20 rounded-xl mb-3 backdrop-blur-sm border border-white/30">
+                  <div className="p-1 bg-white/30 rounded-lg">
+                    <AlertTriangle className="h-4 w-4 text-white" />
+                  </div>
+                </div>
+                
+                <h1 className="text-xl lg:text-2xl font-bold text-white mb-2">
+                  {isEditing ? 'Edit Report' : 'Report Traffic Issue'}
+                </h1>
+                <p className="text-sm text-blue-100 max-w-xl mx-auto leading-relaxed">
+                  {isEditing 
+                    ? 'Update your existing traffic report with the latest information' 
+                    : 'Help your community by reporting real-time traffic conditions and road safety issues'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center justify-center py-20"
+          >
             <div className="text-center">
-              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading report for editing...</p>
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-blue-200 rounded-full"></div>
+                <div className="absolute inset-0 w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <p className="text-slate-600 mt-4 text-lg font-medium">Loading report for editing...</p>
             </div>
-          </div>
+          </motion.div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Report Form */}
+            {/* Enhanced Report Form */}
             <div className="lg:col-span-2">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}
-                className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8"
+                className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 relative overflow-hidden"
               >
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Report Type Selection */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-4">
-                    What type of issue are you reporting? *
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {reportTypes.map((type) => {
-                      const Icon = type.icon;
-                      const isSelected = selectedType === type.id;
-                      return (
-                        <button
-                          key={type.id}
-                          type="button"
-                          onClick={() => setSelectedType(type.id)}
-                          className={`p-4 rounded-xl border-2 transition-all text-center ${
-                            getColorClasses(type.color, isSelected)
-                          }`}
-                        >
-                          <Icon className="h-6 w-6 mx-auto mb-2" />
-                          <span className="text-sm font-medium block">{type.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
-                    Location *
-                  </label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input
-                      type="text"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Enter location or use current location"
-                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={isFetchingLocation}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
-                  >
-                    {isFetchingLocation ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Fetching...
-                      </>
-                    ) : (
-                      '📍 Use current location'
-                    )}
-                  </button>
-                  
-                  {/* Show Location Button when coordinates are available */}
-                  {coordinates.lat !== null && coordinates.lng !== null && (
-                    <div className="mt-3">
-                      <LocationButton 
-                        location={{
-                          address: location,
-                          coordinates: [coordinates.lng, coordinates.lat]
-                        }} 
-                        variant="compact" 
-                        size="small"
-                        className="w-full"
-                      />
+                {/* Form background decoration */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100/50 to-purple-100/50 rounded-full -translate-y-16 translate-x-16 blur-2xl"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-green-100/50 to-blue-100/50 rounded-full translate-y-12 -translate-x-12 blur-2xl"></div>
+                
+                <div className="relative z-10">
+                  <form onSubmit={handleSubmit} className="space-y-8">
+                    {/* Enhanced Report Type Selection */}
+                    <div>
+                      <label className="block text-lg font-bold text-slate-900 mb-6 flex items-center space-x-3">
+                        <div className="w-2 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                        <span>What type of issue are you reporting? *</span>
+                      </label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {reportTypes.map((type) => {
+                          const Icon = type.icon;
+                          const isSelected = selectedType === type.id;
+                          return (
+                            <motion.button
+                              key={type.id}
+                              type="button"
+                              onClick={() => setSelectedType(type.id)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className={`p-4 rounded-xl border-2 transition-all duration-300 text-center group relative overflow-hidden ${
+                                getColorClasses(type.color, isSelected)
+                              } ${isSelected ? 'ring-4 ring-offset-2 ring-blue-500/30 shadow-lg' : 'hover:shadow-md'}`}
+                            >
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl"></div>
+                              )}
+                              <div className="relative z-10">
+                                <div className={`p-2 rounded-lg mx-auto mb-3 w-fit ${
+                                  isSelected ? 'bg-white/20' : 'bg-slate-50/50'
+                                }`}>
+                                  <Icon className={`h-6 w-6 mx-auto transition-transform duration-300 ${
+                                    isSelected ? 'scale-110' : 'group-hover:scale-110'
+                                  }`} />
+                                </div>
+                                <span className="text-xs font-semibold block">{type.label}</span>
+                              </div>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Severity */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
-                    Severity Level
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {['low', 'medium', 'high'].map((level) => (
-                      <button
-                        key={level}
+                    {/* Enhanced Location Section */}
+                    <div>
+                      <label className="block text-lg font-bold text-slate-900 mb-4 flex items-center space-x-3">
+                        <div className="w-2 h-8 bg-gradient-to-b from-green-500 to-blue-500 rounded-full"></div>
+                        <span>Location *</span>
+                      </label>
+                      <div className="relative group">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+                        <div className="relative">
+                          <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-blue-500" />
+                          <input
+                            type="text"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            placeholder="Enter location or use current location"
+                            className="w-full pl-12 pr-4 py-4 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-lg bg-white/80 backdrop-blur-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <motion.button
                         type="button"
-                        onClick={() => setSeverity(level)}
-                        className={`p-3 rounded-xl border-2 text-sm font-medium capitalize transition-all ${
-                          severity === level
-                            ? level === 'low' ? 'bg-green-100 border-green-300 text-green-700'
-                              : level === 'medium' ? 'bg-yellow-100 border-yellow-300 text-yellow-700'
-                              : 'bg-red-100 border-red-300 text-red-700'
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
+                        onClick={handleUseCurrentLocation}
+                        disabled={isFetchingLocation}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all duration-300"
                       >
-                        {level}
-                      </button>
+                        {isFetchingLocation ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            📍 Use current location
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      {/* Enhanced Location Button */}
+                      {coordinates.lat !== null && coordinates.lng !== null && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-4"
+                        >
+                          <LocationButton 
+                            location={{
+                              address: location,
+                              coordinates: [coordinates.lng, coordinates.lat]
+                            }} 
+                            variant="compact" 
+                            size="small"
+                            className="w-full"
+                          />
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* Enhanced Severity Section */}
+                    <div>
+                      <label className="block text-lg font-bold text-slate-900 mb-4 flex items-center space-x-3">
+                        <div className="w-2 h-8 bg-gradient-to-b from-yellow-500 to-red-500 rounded-full"></div>
+                        <span>Severity Level</span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-4">
+                        {[
+                          { level: 'low', color: 'green', icon: '🟢' },
+                          { level: 'medium', color: 'yellow', icon: '🟡' },
+                          { level: 'high', color: 'red', icon: '🔴' }
+                        ].map(({ level, color, icon }) => (
+                          <motion.button
+                            key={level}
+                            type="button"
+                            onClick={() => setSeverity(level)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`p-3 rounded-xl border-2 text-xs font-bold capitalize transition-all duration-300 relative overflow-hidden ${
+                              severity === level
+                                ? level === 'low' ? 'bg-green-100 border-green-400 text-green-700 shadow-lg ring-4 ring-green-500/30'
+                                  : level === 'medium' ? 'bg-yellow-100 border-yellow-400 text-yellow-700 shadow-lg ring-4 ring-yellow-500/30'
+                                  : 'bg-red-100 border-red-400 text-red-700 shadow-lg ring-4 ring-red-500/30'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="text-xl mb-2">{icon}</div>
+                            <span className="uppercase tracking-wide">{level}</span>
+                            {severity === level && (
+                              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl"></div>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Enhanced Description Section with AI Generation */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <label className="block text-lg font-bold text-slate-900 flex items-center space-x-3">
+                          <div className="w-2 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                          <span>Description *</span>
+                        </label>
+                        
+                                                {/* AI Generation Button */}
+                        <div className="relative group">
+                          <motion.button
+                            type="button"
+                            onClick={handleGenerateAIDescription}
+                            disabled={isGeneratingAI || !selectedType || !location || !severity}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-300 ${
+                              isGeneratingAI || !selectedType || !location || !severity
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-lg hover:shadow-xl'
+                            }`}
+                          >
+                            {isGeneratingAI ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Generating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-4 w-4" />
+                                <span>Generate AI Description</span>
+                              </>
+                            )}
+                          </motion.button>
+                          
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50">
+                            <div className="flex items-center space-x-2">
+                              <Wand2 className="h-3 w-3" />
+                              <span>AI generates descriptions based on your report details</span>
+                            </div>
+                            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-t-4 border-transparent border-t-slate-900"></div>
+                          </div>
+                        </div>
+                        
+
+                        
+
+                      </div>
+
+                      {/* AI Generated Description Preview */}
+                      {showAIOptions && aiGeneratedDescription && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <Wand2 className="h-5 w-5 text-purple-600" />
+                              <span className="font-semibold text-purple-800">AI Generated Description</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowAIOptions(false)}
+                              className="text-purple-500 hover:text-purple-700"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+                          
+                          <div className="bg-white p-3 rounded-lg border border-purple-100 mb-3">
+                            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                              {aiGeneratedDescription.split('\n').map((line, index) => {
+                                if (line.trim() && line.trim() === line.trim().toUpperCase() && line.trim().length > 3) {
+                                  // This is a heading - make it bold
+                                  return (
+                                    <div key={index} className="font-bold text-slate-800 mb-2 mt-3 first:mt-0">
+                                      {line.trim()}
+                                    </div>
+                                  );
+                                } else if (line.trim()) {
+                                  // This is content - add proper spacing
+                                  return (
+                                    <div key={index} className="mb-2">
+                                      {line.trim()}
+                                    </div>
+                                  );
+                                } else {
+                                  // Empty line - add spacing
+                                  return <div key={index} className="mb-3"></div>;
+                                }
+                              })}
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-2">
+                            <motion.button
+                              type="button"
+                              onClick={handleUseAIDescription}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors duration-200"
+                            >
+                              <CheckCircle className="h-4 w-4 inline mr-2" />
+                              Use As-Is
+                            </motion.button>
+                            
+                            <motion.button
+                              type="button"
+                              onClick={handleEditAIDescription}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
+                            >
+                              <Edit3 className="h-4 w-4 inline mr-2" />
+                              Edit & Use
+                            </motion.button>
+                            
+                            <motion.button
+                              type="button"
+                              onClick={handleRegenerateAI}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors duration-200"
+                            >
+                              <Wand2 className="h-4 w-4 inline mr-2" />
+                              Regenerate
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      <div className="relative group">
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Provide detailed information about the traffic condition, road issue, or incident... (Max 1500 characters, 250 words)"
+                          rows={8}
+                          maxLength={1500}
+                          className="relative w-full px-6 py-5 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 resize-none text-lg bg-white/80 backdrop-blur-sm font-mono"
+                          required
+                        />
+                      </div>
+                      
+                      {/* Word Count Display */}
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="text-sm text-slate-500">
+                          {description.length}/1500 characters
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className={`text-sm ${
+                            description.split(' ').filter(word => word.length > 0).length > 250 
+                              ? 'text-red-600 font-semibold' 
+                              : description.split(' ').filter(word => word.length > 0).length > 200 
+                                ? 'text-orange-600' 
+                                : 'text-slate-500'
+                          }`}>
+                            {description.split(' ').filter(word => word.length > 0).length}/250 words
+                          </div>
+                          {selectedType && location && severity && (
+                            <div className="flex items-center space-x-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                              <Sparkles className="h-3 w-3" />
+                              <span>AI Ready</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Word Limit Warning */}
+                      {description.split(' ').filter(word => word.length > 0).length > 250 && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-700 font-medium">
+                            ⚠️ Description exceeds 250 word limit. Please shorten it before submitting.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Enhanced Photo Upload Section */}
+                    <div>
+                      <label className="block text-lg font-bold text-slate-900 mb-4 flex items-center space-x-3">
+                        <div className="w-2 h-8 bg-gradient-to-b from-orange-500 to-red-500 rounded-full"></div>
+                        <span>Add Photos (Optional) - Max 5 photos</span>
+                      </label>
+                      
+                      {/* Hidden file inputs */}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                        accept="image/*"
+                        multiple
+                      />
+                      <input
+                        type="file"
+                        ref={cameraInputRef}
+                        onChange={handleCameraPhoto}
+                        className="hidden"
+                        accept="image/*"
+                        capture="environment"
+                      />
+
+                      <div className="border-2 border-dashed border-slate-300 rounded-2xl p-16 text-center transition-all duration-300 hover:border-blue-400 hover:bg-blue-50/30 group">
+                        {photoPreviews.length > 0 ? (
+                          <div className="space-y-8">
+                            {/* Enhanced Photos Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                              {photoPreviews.map((preview, index) => (
+                                <motion.div
+                                  key={index}
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: index * 0.1 }}
+                                  className="relative group/photo overflow-hidden rounded-xl shadow-lg"
+                                >
+                                  <img 
+                                    src={preview} 
+                                    alt={`Photo ${index + 1}`} 
+                                    className="w-full h-40 object-cover transition-transform duration-300 group-hover/photo:scale-110" 
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePhoto(index)}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover/photo:opacity-100 transition-all duration-300 hover:bg-red-600 shadow-lg"
+                                    aria-label="Remove photo"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                                    <span className="text-white text-sm font-medium">Photo {index + 1}</span>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                            
+                            {/* Enhanced Remove All Button */}
+                            <motion.button
+                              type="button"
+                              onClick={handleRemoveAllPhotos}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="px-8 py-4 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-all duration-300 text-sm font-semibold border border-red-200 hover:border-red-300"
+                            >
+                              🗑️ Remove All Photos
+                            </motion.button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                            <motion.button
+                              type="button"
+                              onClick={handleFileUploadClick}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-base font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl border border-blue-400"
+                              title="Select photos from device gallery"
+                            >
+                              <Upload className="h-6 w-6" />
+                              📁 Upload Files
+                            </motion.button>
+                            <motion.button
+                              type="button"
+                              onClick={handleCameraClick}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl text-base font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl border border-green-400"
+                              title="Take photo using device camera"
+                            >
+                              <Camera className="h-6 w-6" />
+                              📸 Take Photo
+                            </motion.button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Enhanced Submit Button */}
+                    <motion.button
+                      type="submit"
+                      disabled={isSubmitting}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full py-6 bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 text-white rounded-2xl font-bold text-xl hover:from-blue-700 hover:via-purple-700 hover:to-green-700 transition-all duration-300 shadow-2xl hover:shadow-3xl transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative z-10">
+                        {isSubmitting ? (
+                          <div className="flex items-center justify-center space-x-3">
+                            <div className="w-7 h-7 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>{isEditing ? 'Updating...' : 'Submitting...'}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center space-x-3">
+                            <Send className="h-7 w-7" />
+                            <span>{isEditing ? 'Update Report' : 'Submit Report'}</span>
+                          </div>
+                        )}
+                      </div>
+                    </motion.button>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Enhanced Sidebar */}
+            <div className="space-y-8">
+              {/* Enhanced Tips Section */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-100/50 to-blue-100/50 rounded-full -translate-y-12 translate-x-12 blur-2xl"></div>
+                
+                <div className="relative z-10">
+                  <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center space-x-3">
+                    <div className="w-2 h-6 bg-gradient-to-b from-green-500 to-blue-500 rounded-full"></div>
+                    <span>Reporting Tips</span>
+                  </h3>
+                  <div className="space-y-5">
+                    {[
+                      'Be specific about the exact location',
+                      'Include multiple photos for better context',
+                      'Report safely - don\'t use while driving',
+                      'Update if situation changes'
+                    ].map((tip, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.1 }}
+                        className="flex items-start space-x-4 group"
+                      >
+                        <div className="p-2 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors duration-300">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        </div>
+                        <p className="text-sm text-slate-600 font-medium">{tip}</p>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
+              </motion.div>
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Provide details about the traffic condition..."
-                    rows={4}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    required
-                  />
-                </div>
-
-                {/* Photo Upload */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
-                    Add Photos (Optional) - Max 5 photos
-                  </label>
-                  {/* Hidden file inputs */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                    accept="image/*"
-                    multiple
-                  />
-                  <input
-                    type="file"
-                    ref={cameraInputRef}
-                    onChange={handleCameraPhoto}
-                    className="hidden"
-                    accept="image/*"
-                    capture="environment"
-                  />
-
-                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center transition-colors">
-                    {photoPreviews.length > 0 ? (
-                      <div className="space-y-4">
-                        {/* Photos Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {photoPreviews.map((preview, index) => (
-                            <div key={index} className="relative group">
-                              <img 
-                                src={preview} 
-                                alt={`Photo ${index + 1}`} 
-                                className="w-full h-24 object-cover rounded-lg" 
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePhoto(index)}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                aria-label="Remove photo"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Remove All Button */}
-                        <button
-                          type="button"
-                          onClick={handleRemoveAllPhotos}
-                          className="px-3 py-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors text-sm"
-                        >
-                          Remove All Photos
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <button
-                          type="button"
-                          onClick={handleFileUploadClick}
-                          className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                          title="Select photos from device gallery"
-                        >
-                          <Upload className="h-4 w-4" />
-                          Upload Files
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCameraClick}
-                          className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                          title="Take photo using device camera"
-                        >
-                          <Camera className="h-4 w-4" />
-                          Take Photo
-                        </button>
-                      </div>
-                    )}
+              {/* Enhanced Reward Info Section */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="bg-gradient-to-br from-blue-50/90 to-green-50/90 backdrop-blur-xl rounded-3xl border border-blue-200/60 p-8 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-200/50 to-purple-200/50 rounded-full -translate-y-10 translate-x-10 blur-2xl"></div>
+                
+                <div className="relative z-10">
+                  <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center space-x-3">
+                    <div className="w-2 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                    <span>Earn Rewards</span>
+                  </h3>
+                  <div className="space-y-5">
+                    {[
+                      { label: 'Verified Report', points: '+10 pts', color: 'green' },
+                      { label: 'With Photos', points: '+5 pts', color: 'blue' },
+                      { label: 'Community Upvotes', points: '+1 pt each', color: 'purple' }
+                    ].map((reward, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 + index * 0.1 }}
+                        className="flex items-center justify-between p-4 bg-white/60 rounded-xl border border-white/40 hover:bg-white/80 transition-all duration-300"
+                      >
+                        <span className="text-sm text-slate-700 font-medium">{reward.label}</span>
+                        <span className={`text-sm font-bold text-${reward.color}-600 bg-${reward.color}-100 px-4 py-2 rounded-full`}>
+                          {reward.points}
+                        </span>
+                      </motion.div>
+                    ))}
                   </div>
                 </div>
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isSubmitting ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>{isEditing ? 'Updating...' : 'Submitting...'}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center space-x-2">
-                      <Send className="h-5 w-5" />
-                      <span>{isEditing ? 'Update Report' : 'Submit Report'}</span>
-                    </div>
-                  )}
-                </button>
-              </form>
-            </motion.div>
+              </motion.div>
+            </div>
           </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Tips */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6"
-            >
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Reporting Tips</h3>
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-slate-600">Be specific about the exact location</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-slate-600">Include multiple photos for better context</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-slate-600">Report safely - don't use while driving</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-slate-600">Update if situation changes</p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Reward Info */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl border border-blue-200 p-6"
-            >
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Earn Rewards</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Verified Report</span>
-                  <span className="text-sm font-semibold text-green-600">+10 pts</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">With Photos</span>
-                  <span className="text-sm font-semibold text-blue-600">+5 pts</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Community Upvotes</span>
-                  <span className="text-sm font-semibold text-purple-600">+1 pt each</span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
         )}
       </div>
     </div>

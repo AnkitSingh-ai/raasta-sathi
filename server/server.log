@@ -1,0 +1,109 @@
+✅ Cloudinary configured successfully
+🔄 Connecting to MongoDB...
+   URI: mongodb+srv://***:***@cluster0.68telww.mongodb.net/raasta-sathi
+(node:13547) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13547) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+✅ Connected to MongoDB: ac-eh2lulz-shard-00-00.68telww.mongodb.net
+📊 Database: raasta-sathi
+🚀 Server running on port 5002 in development mode
+📡 API available at: http://localhost:5002/api
+🏥 Health check: http://localhost:5002/api/health
+🧪 Test endpoint: http://localhost:5002/api/test
+🚀 Starting cron service for auto-expiry...
+✅ Cron service started successfully
+⏰ Cron service initialized
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 99.700 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 314.661 ms - -[0m
+📋 Fetching all reports...
+[0mPOST /api/auth/login [32m200[0m 357.198 ms - -[0m
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 63.947 ms - -[0m
+[0mGET /api/health [32m200[0m 0.337 ms - 235[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports [32m200[0m 56.878 ms - 13438[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports [32m200[0m 56.156 ms - 13438[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports [32m200[0m 58.162 ms - 13438[0m
+[0mGET /api/health [32m200[0m 0.310 ms - 235[0m
+[0mGET /api/users [33m401[0m 0.261 ms - 66[0m
+⏰ Checking for expired reports...
+✅ No expired reports found
+[0mGET /api/users [33m401[0m 0.106 ms - 66[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 52.004 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 52.989 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 53.044 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 53.477 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 53.897 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 53.066 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 60.164 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 52.572 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 69.370 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 59.218 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 65.856 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 56.096 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 100.161 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 146.429 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 98.430 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 78.255 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 80.336 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports [32m200[0m 74.058 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports [32m200[0m 72.585 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 305.461 ms - -[0m
+📋 Fetching all reports...
+[0mPOST /api/auth/login [32m200[0m 352.595 ms - -[0m
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 61.820 ms - -[0m
+📋 Fetching all reports...
+✅ Found 7 reports
+[0mGET /api/reports?limit=1000 [32m200[0m 64.958 ms - -[0m
+⏰ Checking for expired reports...
+✅ No expired reports found

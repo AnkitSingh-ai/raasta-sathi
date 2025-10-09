@@ -10,7 +10,7 @@ const router = Router();
 // @access  Public
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const { timeframe = 'all', limit = 50 } = req.query;
+    const { timeframe = 'all', limit = 100 } = req.query;
 
     let dateFilter = {};
     
@@ -28,91 +28,70 @@ router.get('/', optionalAuth, async (req, res, next) => {
       dateFilter = { createdAt: { $gte: yearAgo } };
     }
 
-    // Get users with their report counts
-    const leaderboard = await User.aggregate([
-      {
-        $match: {
-          role: 'citizen',
-          isActive: true
-        }
-      },
-      {
-        $lookup: {
-          from: 'reports',
-          let: { userId: '$_id' },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ['$reportedBy', '$$userId'] },
-                status: { $in: ['verified', 'resolved'] },
-                ...dateFilter
-              }
-            }
-          ],
-          as: 'reports'
-        }
-      },
-      {
-        $addFields: {
-          reportCount: { $size: '$reports' },
-          verifiedReports: {
-            $size: {
-              $filter: {
-                input: '$reports',
-                cond: { $eq: ['$$this.status', 'verified'] }
-              }
-            }
-          },
-          accuracy: {
-            $cond: {
-              if: { $gt: [{ $size: '$reports' }, 0] },
-              then: {
-                $multiply: [
-                  {
-                    $divide: [
-                      {
-                        $size: {
-                          $filter: {
-                            input: '$reports',
-                            cond: { $eq: ['$$this.status', 'verified'] }
-                          }
-                        }
-                      },
-                      { $size: '$reports' }
-                    ]
-                  },
-                  100
-                ]
-              },
-              else: 0
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          name: 1,
-          avatar: 1,
-          points: 1,
-          badge: 1,
-          level: 1,
-          streak: 1,
-          location: 1,
-          joinDate: 1,
-          reportCount: 1,
-          verifiedReports: 1,
-          accuracy: 1
-        }
-      },
-      {
-        $sort: { points: -1, reportCount: -1 }
-      },
-      {
-        $limit: parseInt(limit)
-      }
-    ]);
+    // Get total users count
+    const totalUsers = await User.countDocuments({ role: 'citizen', isActive: true });
 
-    // Add rank to each user
+    // Get all users first
+    const users = await User.find({ role: 'citizen', isActive: true })
+      .select('_id name avatar points badge level streak location joinDate')
+      .lean();
+
+    // Get all reports for the timeframe
+    const reports = await Report.find(dateFilter)
+      .select('reportedBy status photo photos createdAt')
+      .lean();
+
+    // Group reports by user
+    const reportsByUser = {};
+    reports.forEach(report => {
+      const userId = report.reportedBy.toString();
+      if (!reportsByUser[userId]) {
+        reportsByUser[userId] = [];
+      }
+      reportsByUser[userId].push(report);
+    });
+
+    // Calculate points for each user
+    const leaderboard = users.map(user => {
+      const userReports = reportsByUser[user._id.toString()] || [];
+      const reportCount = userReports.length;
+      
+      // Calculate points
+      let calculatedPoints = reportCount * 10; // Base points
+      
+      // Bonus for resolved reports
+      const resolvedReports = userReports.filter(r => r.status === 'Resolved').length;
+      calculatedPoints += resolvedReports * 5;
+      
+      // Bonus for reports with photos
+      const reportsWithPhotos = userReports.filter(r => 
+        r.photo || (r.photos && r.photos.length > 0)
+      ).length;
+      calculatedPoints += reportsWithPhotos * 2;
+      
+      // Calculate accuracy
+      const accuracy = reportCount > 0 ? Math.round((resolvedReports / reportCount) * 100) : 0;
+      
+      return {
+        _id: user._id,
+        name: user.name || 'Anonymous User',
+        avatar: user.avatar || '👤',
+        points: Math.max(calculatedPoints, user.points || 0),
+        badge: user.badge || 'New Reporter',
+        level: user.level || 1,
+        streak: user.streak || 0,
+        location: user.location || 'Location not set',
+        joinDate: user.joinDate,
+        reportCount,
+        accuracy,
+        calculatedPoints
+      };
+    });
+
+    // Sort by points
+    leaderboard.sort((a, b) => b.points - a.points);
+
+    // Add ranks
     const leaderboardWithRank = leaderboard.map((user, index) => ({
       ...user,
       rank: index + 1
@@ -120,22 +99,32 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
     // Get current user's rank if authenticated
     let userRank = null;
+    let currentUserData = null;
     if (req.user && req.user.role === 'citizen') {
       const userPosition = leaderboardWithRank.findIndex(
         user => user._id.toString() === req.user.id
       );
-      userRank = userPosition !== -1 ? userPosition + 1 : null;
+      
+      if (userPosition !== -1) {
+        userRank = userPosition + 1;
+        currentUserData = leaderboardWithRank[userPosition];
+      }
     }
+
+    // Apply limit
+    const limitedLeaderboard = leaderboardWithRank.slice(0, parseInt(limit));
 
     res.status(200).json({
       status: 'success',
       data: {
-        leaderboard: leaderboardWithRank,
-        userRank,
-        timeframe
+        leaderboard: limitedLeaderboard,
+        userRank: currentUserData,
+        timeframe,
+        totalUsers: totalUsers
       }
     });
   } catch (error) {
+    console.error('Leaderboard error:', error);
     next(error);
   }
 });
@@ -173,14 +162,14 @@ router.get('/stats/:userId', async (req, res, next) => {
         $group: {
           _id: null,
           totalReports: { $sum: 1 },
-          verifiedReports: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'verified'] }, 1, 0]
-            }
-          },
           resolvedReports: {
             $sum: {
-              $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0]
+              $cond: [{ $eq: ['$status', 'Resolved'] }, 1, 0]
+            }
+          },
+          fakeReports: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'Fake Report'] }, 1, 0]
             }
           },
           totalLikes: { $sum: { $size: '$likes' } },
@@ -192,16 +181,16 @@ router.get('/stats/:userId', async (req, res, next) => {
 
     const stats = reportStats[0] || {
       totalReports: 0,
-      verifiedReports: 0,
       resolvedReports: 0,
+      fakeReports: 0,
       totalLikes: 0,
       totalComments: 0,
       totalViews: 0
     };
 
-    // Calculate accuracy
+    // Calculate accuracy based on resolved reports / total reports
     stats.accuracy = stats.totalReports > 0 
-      ? Math.round((stats.verifiedReports / stats.totalReports) * 100)
+      ? Math.round((stats.resolvedReports / stats.totalReports) * 100)
       : 0;
 
     // Get recent reports
@@ -233,42 +222,36 @@ router.get('/achievements', async (req, res, next) => {
         name: 'First Report',
         description: 'Submit your first traffic report',
         icon: 'star',
-        points: 10,
         rarity: 'common'
       },
       {
         name: 'Speed Demon',
         description: 'Report 10 incidents in one day',
         icon: 'trending-up',
-        points: 50,
         rarity: 'rare'
       },
       {
         name: 'Community Helper',
         description: 'Help 100 fellow commuters',
         icon: 'users',
-        points: 100,
         rarity: 'epic'
       },
       {
         name: 'Perfect Week',
         description: '7 days of accurate reporting',
         icon: 'target',
-        points: 75,
         rarity: 'rare'
       },
       {
         name: 'Local Guardian',
         description: 'Most reports in your area',
         icon: 'map-pin',
-        points: 150,
         rarity: 'legendary'
       },
       {
         name: 'Streak Master',
         description: '30-day reporting streak',
         icon: 'calendar',
-        points: 200,
         rarity: 'legendary'
       }
     ];

@@ -373,6 +373,38 @@ button:focus {
   box-shadow: none !important;
 }
 
+/* Custom scrollbar styles */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+  margin: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+  transform: scale(1.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
 /* Enhanced comment reaction buttons */
 .comment-reaction-btn {
   transition: all 0.2s ease-in-out;

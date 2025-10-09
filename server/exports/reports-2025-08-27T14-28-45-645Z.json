@@ -1,0 +1,726 @@
+[
+  {
+    "location": {
+      "address": "noida sector 12",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 0,
+      "notSure": 1,
+      "votes": [
+        {
+          "userId": "6888b01f1b00c1262f141bd7",
+          "choice": "notSure",
+          "_id": "68a758a52ba4b2b2188274b4",
+          "votedAt": "2025-08-21T17:34:29.393Z",
+          "id": "68a758a52ba4b2b2188274b4"
+        }
+      ]
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "6890f69f028b8eef3fd99802",
+    "type": "vip",
+    "description": "anushka is love",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "photos": [],
+    "likes": [
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-20T18:56:20.855Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-20T18:58:28.306Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-27T11:04:11.268Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-27T11:04:12.377Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      }
+    ],
+    "comments": [],
+    "viewedBy": [],
+    "reportedAt": "2025-08-04T18:06:23.972Z",
+    "updatedAt": "2025-08-27T11:04:12.378Z",
+    "createdAt": "2025-08-04T18:06:23.974Z",
+    "__v": 5,
+    "expiresAt": "2025-08-27T11:49:12.378Z",
+    "isExpired": true,
+    "actualResolutionTime": "2025-08-21T18:15:00.040Z",
+    "likeCount": 4,
+    "commentCount": 0,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 1,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "6890f69f028b8eef3fd99802"
+  },
+  {
+    "location": {
+      "address": "noida",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 1,
+      "resolved": 0,
+      "notSure": 0,
+      "votes": [
+        {
+          "userId": "6888b01f1b00c1262f141bd7",
+          "choice": "stillThere",
+          "_id": "68a758a12ba4b2b2188274ad",
+          "votedAt": "2025-08-21T17:34:25.221Z",
+          "id": "68a758a12ba4b2b2188274ad"
+        }
+      ]
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "6890fb6e663ef229e0e97b8b",
+    "type": "congestion",
+    "description": "huge traffic jam near sector",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "views": 0,
+    "isActive": false,
+    "priority": 1,
+    "tags": [],
+    "photos": [],
+    "likes": [
+      {
+        "likedAt": "2025-08-20T18:49:57.375Z",
+        "_id": "6888b01f1b00c1262f141bd7",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "likedAt": "2025-08-20T18:49:59.678Z",
+        "_id": "6888b01f1b00c1262f141bd7",
+        "id": "6888b01f1b00c1262f141bd7"
+      }
+    ],
+    "comments": [],
+    "viewedBy": [],
+    "reportedAt": "2025-08-04T18:26:54.072Z",
+    "updatedAt": "2025-08-27T11:15:25.249Z",
+    "createdAt": "2025-08-04T18:26:54.075Z",
+    "__v": 3,
+    "expiresAt": "2025-08-21T18:10:50.112Z",
+    "isExpired": true,
+    "actualResolutionTime": "2025-08-21T18:15:00.079Z",
+    "likeCount": 2,
+    "commentCount": 0,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 1,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "6890fb6e663ef229e0e97b8b"
+  },
+  {
+    "location": {
+      "address": "Noida sector 58",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 1,
+      "notSure": 0,
+      "votes": [
+        {
+          "userId": "6888b01f1b00c1262f141bd7",
+          "choice": "resolved",
+          "_id": "68a758142ba4b2b218827446",
+          "votedAt": "2025-08-21T17:32:04.376Z",
+          "id": "68a758142ba4b2b218827446"
+        }
+      ]
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68a61461577a379cd9cb5fa5",
+    "type": "weather",
+    "description": "Huge thunderstrom near sector 58",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "photos": [],
+    "likes": [
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-20T18:49:49.798Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-20T18:49:54.458Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-20T18:49:55.909Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-20T18:50:01.055Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-21T17:33:30.229Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      },
+      {
+        "_id": "6888b01f1b00c1262f141bd7",
+        "likedAt": "2025-08-21T17:33:32.794Z",
+        "id": "6888b01f1b00c1262f141bd7"
+      }
+    ],
+    "comments": [
+      {
+        "isEdited": false,
+        "user": "6888b01f1b00c1262f141bd7",
+        "text": "yes it is",
+        "createdAt": "2025-08-20T19:21:53.333Z",
+        "_id": "68a62051521fbf84d5959ca4",
+        "updatedAt": "2025-08-27T14:28:45.867Z",
+        "likes": [],
+        "dislikes": [],
+        "replies": [],
+        "id": "68a62051521fbf84d5959ca4"
+      },
+      {
+        "isEdited": false,
+        "user": "6888b01f1b00c1262f141bd7",
+        "text": "is it resolve",
+        "createdAt": "2025-08-21T17:36:40.225Z",
+        "_id": "68a759282ba4b2b218827549",
+        "updatedAt": "2025-08-27T14:28:45.867Z",
+        "likes": [],
+        "dislikes": [],
+        "replies": [],
+        "id": "68a759282ba4b2b218827549"
+      }
+    ],
+    "viewedBy": [],
+    "reportedAt": "2025-08-20T18:30:57.004Z",
+    "updatedAt": "2025-08-21T18:15:00.111Z",
+    "createdAt": "2025-08-20T18:30:57.008Z",
+    "__v": 10,
+    "expiresAt": "2025-08-21T18:10:50.112Z",
+    "isExpired": true,
+    "actualResolutionTime": "2025-08-21T18:15:00.111Z",
+    "likeCount": 6,
+    "commentCount": 2,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 1,
+    "pollResolvedPercentage": 100,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "68a61461577a379cd9cb5fa5"
+  },
+  {
+    "location": {
+      "address": "Delhi",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 0,
+      "notSure": 0,
+      "votes": []
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68a76d67f2a950cf7a459ad6",
+    "type": "police",
+    "description": "police check point near dwarka sector",
+    "severity": "low",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "photo": "/uploads/photo-1755802983821-708095052.jpg",
+    "photos": [
+      {
+        "url": "/uploads/photo-1755802983821-708095052.jpg",
+        "publicId": "photo-1755802983821-708095052.jpg",
+        "uploadedAt": "2025-08-21T19:03:03.832Z",
+        "_id": "68a76d67f2a950cf7a459ad7",
+        "id": "68a76d67f2a950cf7a459ad7"
+      }
+    ],
+    "isExpired": true,
+    "views": 0,
+    "isActive": false,
+    "priority": 1,
+    "tags": [],
+    "likes": [],
+    "comments": [],
+    "viewedBy": [],
+    "reportedAt": "2025-08-21T19:03:03.836Z",
+    "updatedAt": "2025-08-22T18:00:00.061Z",
+    "createdAt": "2025-08-21T19:03:03.839Z",
+    "expiresAt": "2025-08-22T18:45:00.062Z",
+    "__v": 0,
+    "actualResolutionTime": "2025-08-22T18:00:00.057Z",
+    "likeCount": 0,
+    "commentCount": 0,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 0,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "68a76d67f2a950cf7a459ad6"
+  },
+  {
+    "location": {
+      "address": "noida",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 0,
+      "notSure": 0,
+      "votes": []
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68a8b2925010a52904feb7cf",
+    "type": "pothole",
+    "description": "Anushka is beautiful",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "photo": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755886225/raasta-sathi/h8jyf7sqoeqrqn0cnigf.jpg",
+    "photos": [
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755886225/raasta-sathi/h8jyf7sqoeqrqn0cnigf.jpg",
+        "publicId": "raasta-sathi/h8jyf7sqoeqrqn0cnigf",
+        "uploadedAt": "2025-08-22T18:10:26.443Z",
+        "_id": "68a8b2925010a52904feb7d0",
+        "id": "68a8b2925010a52904feb7d0"
+      }
+    ],
+    "isExpired": true,
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "likes": [],
+    "comments": [],
+    "viewedBy": [],
+    "reportedAt": "2025-08-22T18:10:26.450Z",
+    "updatedAt": "2025-08-22T19:00:00.052Z",
+    "createdAt": "2025-08-22T18:10:26.454Z",
+    "expiresAt": "2025-08-22T19:45:00.052Z",
+    "__v": 0,
+    "actualResolutionTime": "2025-08-22T19:00:00.050Z",
+    "likeCount": 0,
+    "commentCount": 0,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 0,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "68a8b2925010a52904feb7cf"
+  },
+  {
+    "location": {
+      "address": "Noida ",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 1,
+      "notSure": 1,
+      "votes": [
+        {
+          "userId": "68a635833fc267a1ca2e2b19",
+          "choice": "notSure",
+          "_id": "68a8c4265010a52904fec259",
+          "votedAt": "2025-08-22T19:25:26.399Z",
+          "id": "68a8c4265010a52904fec259"
+        },
+        {
+          "userId": "6888b01f1b00c1262f141bd7",
+          "choice": "resolved",
+          "_id": "68a9fad7f6e74af7b9995fe1",
+          "votedAt": "2025-08-23T17:31:03.958Z",
+          "id": "68a9fad7f6e74af7b9995fe1"
+        }
+      ]
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68a8c0bc5010a52904febf14",
+    "type": "construction",
+    "description": "construction is happenig",
+    "severity": "low",
+    "status": "Pending",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "photo": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755889852/raasta-sathi/xcoklwp4w86styk75blz.jpg",
+    "photos": [
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755889852/raasta-sathi/xcoklwp4w86styk75blz.jpg",
+        "publicId": "raasta-sathi/xcoklwp4w86styk75blz",
+        "uploadedAt": "2025-08-22T19:10:52.680Z",
+        "_id": "68a8c0bc5010a52904febf15",
+        "id": "68a8c0bc5010a52904febf15"
+      }
+    ],
+    "isExpired": false,
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "likes": [],
+    "comments": [
+      {
+        "user": "6888b01f1b00c1262f141bd7",
+        "text": "hello ankit",
+        "createdAt": "2025-08-23T17:38:03.506Z",
+        "isEdited": false,
+        "_id": "68a9fc7bc7454154c70bb3b4",
+        "updatedAt": "2025-08-23T17:38:03.508Z",
+        "likes": [],
+        "dislikes": [],
+        "replies": [],
+        "id": "68a9fc7bc7454154c70bb3b4"
+      }
+    ],
+    "viewedBy": [],
+    "reportedAt": "2025-08-22T19:10:52.684Z",
+    "updatedAt": "2025-08-23T17:38:03.516Z",
+    "createdAt": "2025-08-22T19:10:52.686Z",
+    "expiresAt": "2026-08-23T17:38:03.516Z",
+    "__v": 9,
+    "likeCount": 0,
+    "commentCount": 1,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 2,
+    "pollResolvedPercentage": 50,
+    "shouldAutoResolve": false,
+    "isPastExpiry": false,
+    "id": "68a8c0bc5010a52904febf14"
+  },
+  {
+    "location": {
+      "address": "noida",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 0,
+      "notSure": 0,
+      "votes": []
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68a9bfaa2e06592cf3e3fabc",
+    "type": "congestion",
+    "description": "Anushka is true love",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "photo": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755955111/raasta-sathi/osi1xxacfu01tj9qhwfo.jpg",
+    "photos": [
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755955111/raasta-sathi/osi1xxacfu01tj9qhwfo.jpg",
+        "publicId": "raasta-sathi/osi1xxacfu01tj9qhwfo",
+        "uploadedAt": "2025-08-23T13:18:34.412Z",
+        "_id": "68a9bfaa2e06592cf3e3fabd",
+        "id": "68a9bfaa2e06592cf3e3fabd"
+      },
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755955112/raasta-sathi/ulitc3rdtvkovfzrafvy.jpg",
+        "publicId": "raasta-sathi/ulitc3rdtvkovfzrafvy",
+        "uploadedAt": "2025-08-23T13:18:34.412Z",
+        "_id": "68a9bfaa2e06592cf3e3fabe",
+        "id": "68a9bfaa2e06592cf3e3fabe"
+      },
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755955113/raasta-sathi/p1zg1ja9cpdyp5swivaz.jpg",
+        "publicId": "raasta-sathi/p1zg1ja9cpdyp5swivaz",
+        "uploadedAt": "2025-08-23T13:18:34.412Z",
+        "_id": "68a9bfaa2e06592cf3e3fabf",
+        "id": "68a9bfaa2e06592cf3e3fabf"
+      },
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1755955113/raasta-sathi/fwszuiv0jgtegr3w44k0.jpg",
+        "publicId": "raasta-sathi/fwszuiv0jgtegr3w44k0",
+        "uploadedAt": "2025-08-23T13:18:34.412Z",
+        "_id": "68a9bfaa2e06592cf3e3fac0",
+        "id": "68a9bfaa2e06592cf3e3fac0"
+      }
+    ],
+    "isExpired": true,
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "likes": [],
+    "comments": [
+      {
+        "user": "6888b01f1b00c1262f141bd7",
+        "text": "hi its anushka",
+        "createdAt": "2025-08-23T17:24:41.571Z",
+        "isEdited": false,
+        "_id": "68a9f959f6e74af7b9995eb2",
+        "updatedAt": "2025-08-23T17:24:41.573Z",
+        "likes": [],
+        "dislikes": [],
+        "replies": [],
+        "id": "68a9f959f6e74af7b9995eb2"
+      },
+      {
+        "user": "6888b01f1b00c1262f141bd7",
+        "text": "hii",
+        "createdAt": "2025-08-25T16:01:52.797Z",
+        "isEdited": false,
+        "_id": "68ac88f0af2feaf7308d8d43",
+        "updatedAt": "2025-08-25T16:01:52.799Z",
+        "likes": [],
+        "dislikes": [],
+        "replies": [],
+        "id": "68ac88f0af2feaf7308d8d43"
+      }
+    ],
+    "viewedBy": [],
+    "reportedAt": "2025-08-23T13:18:34.418Z",
+    "updatedAt": "2025-08-25T16:01:52.807Z",
+    "createdAt": "2025-08-23T13:18:34.422Z",
+    "expiresAt": "2025-08-25T16:46:52.807Z",
+    "__v": 2,
+    "actualResolutionTime": "2025-08-23T14:05:00.039Z",
+    "likeCount": 0,
+    "commentCount": 2,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 0,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "68a9bfaa2e06592cf3e3fabc"
+  },
+  {
+    "location": {
+      "address": "Noida sector 52",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": []
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 0,
+      "notSure": 0,
+      "votes": []
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68aecec46290fc2bb5f68174",
+    "type": "pothole",
+    "description": "“A car has fallen into a big water-filled sinkhole at Noida Sector 52. Most of the vehicle is submerged, and the road surface is badly damaged. Authorities have cordoned off the area, and people are gathered nearby.”",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "photo": "https://res.cloudinary.com/deg6dthq3/image/upload/v1756286660/raasta-sathi/tfi8setfmw3ddhxowl0b.jpg",
+    "photos": [
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1756286660/raasta-sathi/tfi8setfmw3ddhxowl0b.jpg",
+        "publicId": "raasta-sathi/tfi8setfmw3ddhxowl0b",
+        "uploadedAt": "2025-08-27T09:24:20.875Z",
+        "_id": "68aecec46290fc2bb5f68175",
+        "id": "68aecec46290fc2bb5f68175"
+      },
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1756286660/raasta-sathi/sywpzqa8suhbjmt2iyo8.jpg",
+        "publicId": "raasta-sathi/sywpzqa8suhbjmt2iyo8",
+        "uploadedAt": "2025-08-27T09:24:20.875Z",
+        "_id": "68aecec46290fc2bb5f68176",
+        "id": "68aecec46290fc2bb5f68176"
+      },
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1756286660/raasta-sathi/k8ef9gc4vdvte3llnmmp.jpg",
+        "publicId": "raasta-sathi/k8ef9gc4vdvte3llnmmp",
+        "uploadedAt": "2025-08-27T09:24:20.876Z",
+        "_id": "68aecec46290fc2bb5f68177",
+        "id": "68aecec46290fc2bb5f68177"
+      }
+    ],
+    "isExpired": true,
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "likes": [],
+    "comments": [],
+    "viewedBy": [],
+    "reportedAt": "2025-08-27T09:24:20.880Z",
+    "updatedAt": "2025-08-27T10:10:00.075Z",
+    "createdAt": "2025-08-27T09:24:20.885Z",
+    "expiresAt": "2025-08-27T10:55:00.075Z",
+    "__v": 0,
+    "actualResolutionTime": "2025-08-27T10:10:00.073Z",
+    "likeCount": 0,
+    "commentCount": 0,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 0,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "68aecec46290fc2bb5f68174"
+  },
+  {
+    "location": {
+      "address": "Current Location (28.6100, 77.3569)",
+      "country": "India"
+    },
+    "coordinates": {
+      "type": "Point",
+      "coordinates": [
+        77.35687057061435,
+        28.609967340064838
+      ]
+    },
+    "poll": {
+      "stillThere": 0,
+      "resolved": 0,
+      "notSure": 0,
+      "votes": []
+    },
+    "votes": {
+      "up": [],
+      "down": []
+    },
+    "_id": "68aeff7886110a54a5df0491",
+    "type": "closure",
+    "description": "hello Anushka",
+    "severity": "medium",
+    "status": "Resolved",
+    "reportedBy": "6888b01f1b00c1262f141bd7",
+    "photo": "https://res.cloudinary.com/deg6dthq3/image/upload/v1756299127/raasta-sathi/wthv9kbsbg3ctym5i3am.jpg",
+    "photos": [
+      {
+        "url": "https://res.cloudinary.com/deg6dthq3/image/upload/v1756299127/raasta-sathi/wthv9kbsbg3ctym5i3am.jpg",
+        "publicId": "raasta-sathi/wthv9kbsbg3ctym5i3am",
+        "uploadedAt": "2025-08-27T12:52:08.827Z",
+        "_id": "68aeff7886110a54a5df0492",
+        "id": "68aeff7886110a54a5df0492"
+      }
+    ],
+    "isExpired": true,
+    "views": 0,
+    "isActive": true,
+    "priority": 1,
+    "tags": [],
+    "likes": [],
+    "comments": [],
+    "viewedBy": [],
+    "reportedAt": "2025-08-27T12:52:08.831Z",
+    "updatedAt": "2025-08-27T13:40:00.052Z",
+    "createdAt": "2025-08-27T12:52:08.833Z",
+    "expiresAt": "2025-08-27T14:25:00.052Z",
+    "__v": 0,
+    "actualResolutionTime": "2025-08-27T13:40:00.051Z",
+    "likeCount": 0,
+    "commentCount": 0,
+    "totalCommentLikes": 0,
+    "totalCommentDislikes": 0,
+    "totalReplies": 0,
+    "voteScore": 0,
+    "totalPollVotes": 0,
+    "pollResolvedPercentage": 0,
+    "shouldAutoResolve": false,
+    "isPastExpiry": true,
+    "id": "68aeff7886110a54a5df0491"
+  }
+]

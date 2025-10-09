@@ -7,7 +7,23 @@ import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 dotenv.config();
+
+// Configure Cloudinary after environment variables are loaded
+import cloudinary, { configureCloudinary } from './config/cloudinary.js';
+
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+const apiKey = process.env.CLOUDINARY_API_KEY;
+const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+if (cloudName && apiKey && apiSecret) {
+  configureCloudinary(cloudName, apiKey, apiSecret);
+  console.log('✅ Cloudinary configured successfully');
+} else {
+  console.log('⚠️ Cloudinary credentials not found, using default configuration');
+}
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -17,16 +33,89 @@ import serviceRoutes from './routes/services.js';
 import leaderboardRoutes from './routes/leaderboard.js';
 import notificationRoutes from './routes/notifications.js';
 
+// Import services
+import cronService from './utils/cronService.js';
+
 // Import middleware
 import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
+
+// Comprehensive CORS configuration for all routes
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'http://localhost:5173', 
+    'http://localhost:5174', 
+    'http://localhost:5175', 
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  
+  // For API requests with credentials, use specific origin
+  if (req.path.startsWith('/api/')) {
+    if (allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+    }
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // For static files (like images), use wildcard
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Expose-Headers', '*');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173', 
+      'http://localhost:5174', 
+      'http://localhost:5175', 
+      'http://localhost:3000'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 app.get('/cors-test', (req, res) => {
   res.json({ message: 'CORS is working!' });
+});
+
+// Enhanced CORS test endpoint
+app.get('/cors-test-image', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  res.json({ 
+    message: 'CORS is working for images!',
+    timestamp: new Date().toISOString(),
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+    }
+  });
 });
 
 // Security middleware
@@ -36,17 +125,57 @@ app.use(compression());
 // CORS configuration
 
 
-// Rate limiting
+// Rate limiting - more lenient for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  max: 500, // Increased to 500 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use('/api/', limiter);
+
+// Apply rate limiting to all routes except health check
+app.use('/api/', (req, res, next) => {
+  // Skip rate limiting for health check and test endpoints
+  if (req.path === '/health' || req.path === '/test') {
+    return next();
+  }
+  return limiter(req, res, next);
+});
 
 // Body parsing middleware
-app.use(json({ limit: '10mb' }));
-app.use(urlencoded({ extended: true, limit: '10mb' }));
+app.use(json({ limit: '50mb' }));
+app.use(urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve uploaded files statically with wildcard CORS (no credentials needed for images)
+app.use('/uploads', (req, res, next) => {
+  // For static files, we can safely use wildcard since no credentials are needed
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+}, express.static('uploads', {
+  setHeaders: (res, path) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, HEAD');
+    res.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.set('Cache-Control', 'public, max-age=31536000');
+  }
+}));
+
+// Increase timeout for file uploads
+app.use((req, res, next) => {
+  req.setTimeout(120000); // 2 minutes timeout
+  res.setTimeout(120000); // 2 minutes timeout
+  next();
+});
 
 // Logging
 if (process.env.NODE_ENV === 'development') {
@@ -73,7 +202,7 @@ const connectDB = async () => {
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000, // 45 seconds
-      bufferCommands: false
+      bufferCommands: true // Enable command buffering while connecting
     });
 
     console.log('✅ Connected to MongoDB:', conn.connection.host);
@@ -117,8 +246,114 @@ const connectDB = async () => {
   }
 };
 
-// Connect to database
-connectDB();
+// Connect to database and start server only after connection
+const startServer = async () => {
+  try {
+    await connectDB();
+    
+    // Start cron service after database connection
+    setTimeout(() => {
+      try {
+        cronService.start();
+        console.log('⏰ Cron service initialized');
+      } catch (error) {
+        console.error('❌ Failed to start cron service:', error);
+      }
+    }, 2000); // Wait 2 seconds for database to be ready
+    
+    // Start the server
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+      console.log(`📡 API available at: http://localhost:${PORT}/api`);
+      console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🧪 Test endpoint: http://localhost:${PORT}/api/test`);
+    });
+
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (err, promise) => {
+      console.log('❌ Unhandled Rejection at:', promise, 'reason:', err);
+      // Don't exit the process, just log the error
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('👋 SIGTERM received. Shutting down gracefully...');
+      server.close(() => {
+        console.log('💤 Process terminated');
+        connection.close();
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
+
+// Special route for image files with enhanced CORS
+app.get('/uploads/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(process.cwd(), 'uploads', filename);
+  
+  // Set CORS headers for images (wildcard is fine for static files)
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Cache-Control', 'public, max-age=31536000'); // 1 year cache
+  
+  // Check if file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Image not found' });
+  }
+  
+  // Send file with proper headers
+  res.sendFile(filePath);
+});
+
+// Test endpoint for CORS debugging
+app.get('/test-image/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(process.cwd(), 'uploads', filename);
+  
+  console.log('🔍 Testing image access for:', filename);
+  console.log('📁 File path:', filePath);
+  console.log('📁 File exists:', fs.existsSync(filePath));
+  
+  // Set comprehensive CORS headers
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ 
+      error: 'Image not found',
+      filename,
+      filePath,
+      exists: false
+    });
+  }
+  
+  // Get file stats
+  const stats = fs.statSync(filePath);
+  console.log('📊 File stats:', {
+    size: stats.size,
+    created: stats.birthtime,
+    modified: stats.mtime
+  });
+  
+  res.json({
+    success: true,
+    filename,
+    filePath,
+    exists: true,
+    size: stats.size,
+    created: stats.birthtime,
+    modified: stats.mtime
+  });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -165,31 +400,6 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-  console.log(`📡 API available at: http://localhost:${PORT}/api`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🧪 Test endpoint: http://localhost:${PORT}/api/test`);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
-  console.log('❌ Unhandled Rejection at:', promise, 'reason:', err);
-  // Don't exit the process, just log the error
-  // server.close(() => {
-  //   process.exit(1);
-  // });
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('💤 Process terminated');
-    connection.close();
-  });
-});
+const PORT = process.env.PORT || 5002;
 
 export default app;

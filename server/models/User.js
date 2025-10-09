@@ -31,11 +31,7 @@ const userSchema = new Schema({
     enum: ['citizen', 'police', 'municipal', 'service_provider'],
     default: 'citizen'
   },
-  contactNumber: {
-    type: String,
-    required: [true, 'Contact number is required'],
-    match: [/^\+?[1-9]\d{1,14}$/, 'Please add a valid phone number']
-  },
+ 
   location: {
     type: String,
     default: ''
@@ -133,6 +129,36 @@ const userSchema = new Schema({
   passwordResetToken: String,
   passwordResetExpires: Date,
   
+  // OTP fields
+  emailOTP: String,
+  emailOTPExpires: Date,
+  passwordResetOTP: String,
+  passwordResetOTPExpires: Date,
+  
+  // Fake report restriction system
+  isRestrictedFromReporting: {
+    type: Boolean,
+    default: false
+  },
+  restrictionStartDate: {
+    type: Date
+  },
+  restrictionEndDate: {
+    type: Date
+  },
+  restrictionReason: {
+    type: String,
+    enum: ['fake_reports', 'spam', 'inappropriate_content'],
+    default: 'fake_reports'
+  },
+  fakeReportCount: {
+    type: Number,
+    default: 0
+  },
+  lastFakeReportDate: {
+    type: Date
+  },
+  
   // Timestamps
   joinDate: {
     type: Date,
@@ -150,7 +176,6 @@ const userSchema = new Schema({
 });
 
 // Indexes
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ location: 1 });
 userSchema.index({ points: -1 });
@@ -212,6 +237,60 @@ userSchema.methods.updateStreak = function() {
   }
   
   this.lastReportDate = today;
+  return this.save();
+};
+
+// Method to check if user can report (not restricted)
+userSchema.methods.canReport = function() {
+  // Check if user is currently restricted
+  if (this.isRestrictedFromReporting) {
+    const now = new Date();
+    // If restriction has expired, remove it
+    if (this.restrictionEndDate && now > this.restrictionEndDate) {
+      this.isRestrictedFromReporting = false;
+      this.restrictionStartDate = undefined;
+      this.restrictionEndDate = undefined;
+      this.restrictionReason = undefined;
+      this.save();
+      return true;
+    }
+    return false;
+  }
+  return true;
+};
+
+// Method to add fake report count and check for restriction
+userSchema.methods.addFakeReport = function() {
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  // Reset fake report count if last fake report was more than a week ago
+  if (!this.lastFakeReportDate || this.lastFakeReportDate < oneWeekAgo) {
+    this.fakeReportCount = 0;
+  }
+  
+  this.fakeReportCount += 1;
+  this.lastFakeReportDate = now;
+  
+  // If user has 3 or more fake reports in the last week, restrict them
+  if (this.fakeReportCount >= 3) {
+    this.isRestrictedFromReporting = true;
+    this.restrictionStartDate = now;
+    this.restrictionEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week from now
+    this.restrictionReason = 'fake_reports';
+  }
+  
+  return this.save();
+};
+
+// Method to remove restriction (for admin use)
+userSchema.methods.removeRestriction = function() {
+  this.isRestrictedFromReporting = false;
+  this.restrictionStartDate = undefined;
+  this.restrictionEndDate = undefined;
+  this.restrictionReason = undefined;
+  this.fakeReportCount = 0;
+  this.lastFakeReportDate = undefined;
   return this.save();
 };
 
