@@ -10,7 +10,15 @@ const createTransporter = () => {
     auth: {
       user: process.env.EMAIL_USER || 'your-email@gmail.com',
       pass: process.env.EMAIL_PASS || 'your-app-password'
-    }
+    },
+    // Add connection timeout to prevent hanging
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000, // 10 seconds
+    socketTimeout: 10000, // 10 seconds
+    // Pool connections for better performance
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100
   });
 };
 
@@ -78,7 +86,13 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
     
     console.log('📤 Sending email with options:', { ...mailOptions, html: 'HTML_CONTENT' });
     
-    const result = await transporter.sendMail(mailOptions);
+    // Add timeout to email sending (15 seconds max)
+    const emailPromise = transporter.sendMail(mailOptions);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000)
+    );
+    
+    const result = await Promise.race([emailPromise, timeoutPromise]);
     console.log('✅ Email sent successfully:', result.messageId);
     return true;
   } catch (error) {

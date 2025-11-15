@@ -41,8 +41,8 @@ router.post('/register', validateRegister, validate, async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    // Check if user already exists (optimized query - only check email field)
+    const existingUser = await User.findOne({ email }).select('_id').lean();
     if (existingUser) {
       return res.status(400).json({
         status: 'error',
@@ -64,18 +64,23 @@ router.post('/register', validateRegister, validate, async (req, res, next) => {
       emailOTPExpires
     });
 
-    // Send OTP email
-    const emailSent = await sendOTPEmail(email, emailOTP, 'verification');
-    
-    if (!emailSent) {
-      // If email fails, remove temp registration and return error
-      removeTempRegistration(tempId);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to send verification email. Please try again.'
+    // Send OTP email asynchronously (non-blocking)
+    // Don't await - send response immediately and handle email in background
+    sendOTPEmail(email, emailOTP, 'verification')
+      .then((emailSent) => {
+        if (!emailSent) {
+          console.error('Failed to send verification email to:', email);
+          // Don't remove temp registration - user can still use OTP if they have it
+        } else {
+          console.log('Verification email sent successfully to:', email);
+        }
+      })
+      .catch((error) => {
+        console.error('Error sending verification email:', error);
+        // Log error but don't block user - they can request resend if needed
       });
-    }
 
+    // Return response immediately without waiting for email
     res.status(200).json({
       status: 'success',
       message: 'Please check your email for verification code to complete registration.',
@@ -247,8 +252,8 @@ router.post('/verify-email', async (req, res, next) => {
       });
     }
 
-    // Check if user already exists (double-check)
-    const existingUser = await User.findOne({ email });
+    // Check if user already exists (double-check - optimized query)
+    const existingUser = await User.findOne({ email }).select('_id').lean();
     if (existingUser) {
       removeTempRegistration(tempId);
       return res.status(400).json({
@@ -333,16 +338,22 @@ router.post('/resend-verification', async (req, res, next) => {
     // Store updated registration data
     storeTempRegistration(email, tempRegistration);
 
-    // Send new OTP email
-    const emailSent = await sendOTPEmail(email, emailOTP, 'verification');
-    
-    if (!emailSent) {
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to send verification email. Please try again.'
+    // Send new OTP email asynchronously (non-blocking)
+    // Don't await - send response immediately and handle email in background
+    sendOTPEmail(email, emailOTP, 'verification')
+      .then((emailSent) => {
+        if (!emailSent) {
+          console.error('Failed to resend verification email to:', email);
+        } else {
+          console.log('Verification email resent successfully to:', email);
+        }
+      })
+      .catch((error) => {
+        console.error('Error resending verification email:', error);
+        // Log error but don't block user - they can try again if needed
       });
-    }
 
+    // Return response immediately without waiting for email
     res.status(200).json({
       status: 'success',
       message: 'New verification code sent successfully! Please check your email.'
@@ -377,16 +388,22 @@ router.post('/forgot-password', async (req, res, next) => {
     user.passwordResetOTPExpires = passwordResetOTPExpires;
     await user.save();
 
-    // Send OTP email
-    const emailSent = await sendOTPEmail(email, passwordResetOTP, 'password-reset');
-    
-    if (!emailSent) {
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to send password reset email. Please try again.'
+    // Send OTP email asynchronously (non-blocking)
+    // Don't await - send response immediately and handle email in background
+    sendOTPEmail(email, passwordResetOTP, 'password-reset')
+      .then((emailSent) => {
+        if (!emailSent) {
+          console.error('Failed to send password reset email to:', email);
+        } else {
+          console.log('Password reset email sent successfully to:', email);
+        }
+      })
+      .catch((error) => {
+        console.error('Error sending password reset email:', error);
+        // Log error but don't block user - they can request resend if needed
       });
-    }
 
+    // Return response immediately without waiting for email
     res.status(200).json({
       status: 'success',
       message: 'Password reset code sent to your email!'
