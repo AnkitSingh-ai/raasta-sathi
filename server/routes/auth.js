@@ -81,7 +81,8 @@ router.post('/register', validateRegister, validate, async (req, res, next) => {
       });
 
     // Return response immediately without waiting for email
-    res.status(200).json({
+    // In development mode, include OTP in response for testing
+    const responseData = {
       status: 'success',
       message: 'Please check your email for verification code to complete registration.',
       data: {
@@ -89,7 +90,15 @@ router.post('/register', validateRegister, validate, async (req, res, next) => {
         email,
         message: 'Account will be created after email verification'
       }
-    });
+    };
+
+    // Include OTP in development mode for easier testing
+    if (process.env.NODE_ENV === 'development') {
+      responseData.data.devOTP = emailOTP;
+      responseData.message += ' (OTP also logged to server console and included in response for development)';
+    }
+
+    res.status(200).json(responseData);
   } catch (error) {
     next(error);
   }
@@ -354,10 +363,21 @@ router.post('/resend-verification', async (req, res, next) => {
       });
 
     // Return response immediately without waiting for email
-    res.status(200).json({
+    // In development mode, include OTP in response for testing
+    const responseData = {
       status: 'success',
       message: 'New verification code sent successfully! Please check your email.'
-    });
+    };
+
+    // Include OTP in development mode for easier testing
+    if (process.env.NODE_ENV === 'development') {
+      responseData.data = {
+        devOTP: emailOTP
+      };
+      responseData.message += ' (OTP also logged to server console and included in response for development)';
+    }
+
+    res.status(200).json(responseData);
   } catch (error) {
     next(error);
   }
@@ -404,10 +424,21 @@ router.post('/forgot-password', async (req, res, next) => {
       });
 
     // Return response immediately without waiting for email
-    res.status(200).json({
+    // In development mode, include OTP in response for testing
+    const responseData = {
       status: 'success',
       message: 'Password reset code sent to your email!'
-    });
+    };
+
+    // Include OTP in development mode for easier testing
+    if (process.env.NODE_ENV === 'development') {
+      responseData.data = {
+        devOTP: passwordResetOTP
+      };
+      responseData.message += ' (OTP also logged to server console and included in response for development)';
+    }
+
+    res.status(200).json(responseData);
   } catch (error) {
     next(error);
   }

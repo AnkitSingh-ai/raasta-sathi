@@ -1,15 +1,32 @@
 import nodemailer from 'nodemailer';
 
+// Check if email is properly configured
+const isEmailConfigured = () => {
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+  
+  return emailUser && 
+         emailPass && 
+         emailUser !== 'your-email@gmail.com' && 
+         emailPass !== 'your-app-password';
+};
+
 // Create transporter (you'll need to configure this with your email service)
 const createTransporter = () => {
+  // Check if email is configured
+  if (!isEmailConfigured()) {
+    console.warn('⚠️  Email not properly configured. OTPs will be logged to console in development mode.');
+    return null;
+  }
+
   // Use configured email service
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
+    port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.EMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.EMAIL_PASS || 'your-app-password'
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
     },
     // Add connection timeout to prevent hanging
     connectionTimeout: 10000, // 10 seconds
@@ -25,24 +42,47 @@ const createTransporter = () => {
 // Send OTP email
 export const sendOTPEmail = async (email, otp, type = 'verification') => {
   try {
-    console.log('📧 Attempting to send email to:', email);
-    console.log('🔧 Email configuration:', {
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS ? '***' : 'NOT_SET'
-    });
+    const emailType = type === 'verification' ? 'Email Verification' : 'Password Reset';
+    console.log(`📧 Attempting to send ${emailType} OTP to:`, email);
     
-
+    // In development mode or if email not configured, log OTP to console
+    if (process.env.NODE_ENV === 'development' || !isEmailConfigured()) {
+      console.log('\n' + '='.repeat(60));
+      console.log(`🔐 ${emailType.toUpperCase()} OTP FOR ${email.toUpperCase()}`);
+      console.log('='.repeat(60));
+      console.log(`📝 OTP Code: ${otp}`);
+      console.log(`⏰ This code expires in 10 minutes`);
+      console.log('='.repeat(60) + '\n');
+      
+      // If email is not configured, return true (OTP logged to console)
+      if (!isEmailConfigured()) {
+        console.warn('⚠️  Email service not configured. OTP logged above for development.');
+        return true;
+      }
+    }
     
     const transporter = createTransporter();
+    
+    if (!transporter) {
+      console.error('❌ Email transporter not available');
+      return false;
+    }
+    
+    // Verify transporter connection
+    try {
+      await transporter.verify();
+      console.log('✅ Email transporter verified successfully');
+    } catch (verifyError) {
+      console.error('❌ Email transporter verification failed:', verifyError.message);
+      // Still try to send, but log the error
+    }
     
     let subject, html;
     
     if (type === 'verification') {
       subject = 'Verify Your Email - Raasta Sathi';
       html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #2563eb; text-align: center;">Raasta Sathi</h2>
           <h3 style="color: #1f2937;">Email Verification</h3>
           <p>Your verification code is:</p>
@@ -60,7 +100,7 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
     } else if (type === 'password-reset') {
       subject = 'Password Reset - Raasta Sathi';
       html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #2563eb; text-align: center;">Raasta Sathi</h2>
           <h3 style="color: #1f2937;">Password Reset</h3>
           <p>Your password reset code is:</p>
@@ -78,13 +118,13 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
     }
     
     const mailOptions = {
-      from: `"Raasta Sathi" <${process.env.EMAIL_USER || 'apparihar898@gmail.com'}>`,
+      from: `"Raasta Sathi" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: subject,
       html: html
     };
     
-    console.log('📤 Sending email with options:', { ...mailOptions, html: 'HTML_CONTENT' });
+    console.log('📤 Sending email...');
     
     // Add timeout to email sending (15 seconds max)
     const emailPromise = transporter.sendMail(mailOptions);
@@ -93,15 +133,24 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
     );
     
     const result = await Promise.race([emailPromise, timeoutPromise]);
-    console.log('✅ Email sent successfully:', result.messageId);
+    console.log('✅ Email sent successfully! Message ID:', result.messageId);
+    console.log('📬 Email sent to:', email);
     return true;
   } catch (error) {
-    console.error('❌ Failed to send email:', error);
+    console.error('❌ Failed to send email:', error.message);
     console.error('❌ Error details:', {
       message: error.message,
       code: error.code,
-      command: error.command
+      command: error.command,
+      response: error.response
     });
+    
+    // In development, still return true if email fails (OTP was logged to console)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  Email failed but continuing in development mode. Check OTP in console above.');
+      return true;
+    }
+    
     return false;
   }
 };
