@@ -764,18 +764,23 @@ useEffect(() => {
                                     </div>
                                   </div>
                                   
-                                  {/* Compact Voting Buttons */}
-                                  {user && report.status === 'Active' && !report.isExpired && (
+                                  {/* Compact Voting Buttons - Show for Active reports or if not Resolved/Fake */}
+                                  {report.status !== 'Resolved' && report.status !== 'Fake Report' && !report.isExpired && (
                                     <div className="grid grid-cols-3 gap-1">
                                       <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          if (!user) {
+                                            toast.error('Please login to vote');
+                                            return;
+                                          }
                                           handlePollVote(report._id || report.id, 'stillThere');
                                         }}
-                                        disabled={votingReports.has(report._id || report.id)}
+                                        disabled={votingReports.has(report._id || report.id) || !user}
                                         className="px-2 py-1 text-xs bg-gradient-to-r from-red-100 to-red-200 text-red-700 rounded hover:from-red-200 hover:to-red-300 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300 font-medium shadow-sm"
+                                        title={!user ? 'Login to vote' : 'Still There'}
                                       >
                                         {votingReports.has(report._id || report.id) ? 'Voting...' : '🚨 Still There'}
                                       </motion.button>
@@ -784,10 +789,15 @@ useEffect(() => {
                                         whileTap={{ scale: 0.95 }}
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          if (!user) {
+                                            toast.error('Please login to vote');
+                                            return;
+                                          }
                                           handlePollVote(report._id || report.id, 'resolved');
                                         }}
-                                        disabled={votingReports.has(report._id || report.id)}
+                                        disabled={votingReports.has(report._id || report.id) || !user}
                                         className="px-2 py-1 text-xs bg-gradient-to-r from-green-100 to-green-200 text-green-700 rounded hover:from-green-200 hover:to-green-300 disabled:opacity-50 transition-all duration-200 border border-green-200 hover:border-green-300 font-medium shadow-sm"
+                                        title={!user ? 'Login to vote' : 'Resolved'}
                                       >
                                         {votingReports.has(report._id || report.id) ? 'Voting...' : '✅ Resolved'}
                                       </motion.button>
@@ -796,10 +806,15 @@ useEffect(() => {
                                         whileTap={{ scale: 0.95 }}
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          if (!user) {
+                                            toast.error('Please login to vote');
+                                            return;
+                                          }
                                           handlePollVote(report._id || report.id, 'fake');
                                         }}
-                                        disabled={votingReports.has(report._id || report.id)}
+                                        disabled={votingReports.has(report._id || report.id) || !user}
                                         className="px-2 py-1 text-xs bg-gradient-to-r from-red-100 to-red-200 text-red-700 rounded hover:from-red-200 hover:to-red-300 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300 font-medium shadow-sm"
+                                        title={!user ? 'Login to vote' : 'Fake Report'}
                                       >
                                         {votingReports.has(report._id || report.id) ? 'Voting...' : '❌ Fake'}
                                       </motion.button>
@@ -1076,27 +1091,48 @@ useEffect(() => {
                         <div className="text-xs text-slate-600">Fake</div>
                       </div>
                     </div>
-                    {/* Voting Buttons */}
-                    {user && selectedReport.status === 'Active' && !selectedReport.isExpired && (
+                    {/* Voting Buttons - Show for Active reports or if not Resolved/Fake */}
+                    {selectedReport.status !== 'Resolved' && selectedReport.status !== 'Fake Report' && !selectedReport.isExpired && (
                       <div className="grid grid-cols-3 gap-2">
                         <button
-                          onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'stillThere')}
-                          disabled={votingReports.has(selectedReport._id || selectedReport.id)}
+                          onClick={() => {
+                            if (!user) {
+                              toast.error('Please login to vote');
+                              return;
+                            }
+                            handlePollVote(selectedReport._id || selectedReport.id, 'stillThere');
+                          }}
+                          disabled={votingReports.has(selectedReport._id || selectedReport.id) || !user}
                           className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
+                          title={!user ? 'Login to vote' : 'Still There'}
                         >
                           {votingReports.has(selectedReport._id || selectedReport.id) ? 'Voting...' : '🚨 Still There'}
                         </button>
                         <button
-                          onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'resolved')}
-                          disabled={votingReports.has(selectedReport._id || selectedReport.id)}
+                          onClick={() => {
+                            if (!user) {
+                              toast.error('Please login to vote');
+                              return;
+                            }
+                            handlePollVote(selectedReport._id || selectedReport.id, 'resolved');
+                          }}
+                          disabled={votingReports.has(selectedReport._id || selectedReport.id) || !user}
                           className="px-3 py-2 text-sm bg-green-100 text-green-600 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-all duration-200 border border-green-200 hover:border-green-300"
+                          title={!user ? 'Login to vote' : 'Resolved'}
                         >
                           {votingReports.has(selectedReport._id || selectedReport.id) ? 'Voting...' : '✅ Resolved'}
                         </button>
                         <button
-                          onClick={() => handlePollVote(selectedReport._id || selectedReport.id, 'fake')}
-                          disabled={votingReports.has(selectedReport._id || selectedReport.id)}
+                          onClick={() => {
+                            if (!user) {
+                              toast.error('Please login to vote');
+                              return;
+                            }
+                            handlePollVote(selectedReport._id || selectedReport.id, 'fake');
+                          }}
+                          disabled={votingReports.has(selectedReport._id || selectedReport.id) || !user}
                           className="px-3 py-2 text-sm bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-all duration-200 border border-red-200 hover:border-red-300"
+                          title={!user ? 'Login to vote' : 'Fake Report'}
                         >
                           {votingReports.has(selectedReport._id || selectedReport.id) ? 'Voting...' : '❌ Fake'}
                         </button>
