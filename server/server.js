@@ -42,61 +42,58 @@ import errorHandler from './middleware/errorHandler.js';
 const app = express();
 
 // Comprehensive CORS configuration for all routes
-app.use((req, res, next) => {
-  const allowedOrigins = [
-    'http://localhost:5173', 
-    'http://localhost:5174', 
-    'http://localhost:5175', 
-    'http://localhost:3000'
-  ];
-  
-  const origin = req.headers.origin;
-  
-  // For API requests with credentials, use specific origin
-  if (req.path.startsWith('/api/')) {
-    if (allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
-    }
-    res.header('Access-Control-Allow-Credentials', 'true');
-  } else {
-    // For static files (like images), use wildcard
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Expose-Headers', '*');
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  next();
-});
+// Allow configuration via environment variables for deployment platforms (Render, Vercel, etc.)
+// "FRONTEND_URL" is the public URL where the client is hosted (e.g. https://raasta-sathi.vercel.app)
+// "ALLOWED_ORIGINS" can be a comma-separated list of additional allowed origins.
+const envAllowed = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : [];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:3000',
+  'https://raasta-sathi.vercel.app',
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+  ...envAllowed
+];
 
-app.use(cors({
+// CORS configuration function
+const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:5173', 
-      'http://localhost:5174', 
-      'http://localhost:5175', 
-      'http://localhost:3000'
-    ];
+    // Allow requests with no origin (like mobile apps, Postman, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
     
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
+    // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      // For production, be more permissive - allow any origin that matches common patterns
+      // This helps with Render and other deployment platforms
+      if (process.env.NODE_ENV === 'production') {
+        // Allow any https origin in production (you can restrict this further if needed)
+        if (origin.startsWith('https://')) {
+          console.log('⚠️  Allowing origin in production:', origin);
+          return callback(null, true);
+        }
+      }
+      
+      console.log('❌ CORS blocked origin:', origin);
+      console.log('📋 Allowed origins:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  exposedHeaders: ['*'],
   optionsSuccessStatus: 200
-}));
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// CORS test endpoint
 app.get('/cors-test', (req, res) => {
   res.json({ message: 'CORS is working!' });
 });
@@ -121,8 +118,6 @@ app.get('/cors-test-image', (req, res) => {
 // Security middleware
 app.use(helmet());
 app.use(compression());
-
-// CORS configuration
 
 
 // Rate limiting - more lenient for development
@@ -386,6 +381,19 @@ app.get('/api/test', (req, res) => {
     status: 'success',
     message: 'Backend is working! Frontend can connect to the API.',
     timestamp: new Date().toISOString()
+  });
+});
+
+// Root route - helpful when someone opens the backend URL in a browser
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Raasta Sathi backend is running. Use the /api/* endpoints.',
+    api: {
+      health: '/api/health',
+      test: '/api/test'
+    },
+    frontend: process.env.FRONTEND_URL || null
   });
 });
 

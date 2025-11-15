@@ -148,10 +148,65 @@ NODE_ENV=development
 
 The API is designed to work with any MongoDB hosting service. Simply update the `MONGODB_URI` environment variable with your database connection string.
 
+### Deploying to Render
+
+1. **Create a Render Account**
+   - Sign up at [render.com](https://render.com)
+
+2. **Create a New Web Service**
+   - Click "New +" → "Web Service"
+   - Connect your GitHub repository: `https://github.com/AnkitSingh-ai/raasta-sathi`
+   - Configure the service:
+     - **Name**: `raasta-sathi-backend`
+     - **Environment**: `Node`
+     - **Build Command**: `cd server && npm install`
+     - **Start Command**: `cd server && npm start`
+     - **Root Directory**: Leave empty (or use `server` if deploying only server)
+
+3. **Set Environment Variables**
+   In the Render dashboard, add these environment variables:
+   ```
+   NODE_ENV=production
+   PORT=5002
+   MONGODB_URI=your_mongodb_atlas_connection_string
+   JWT_SECRET=your_super_secret_jwt_key
+   JWT_EXPIRE=7d
+   FRONTEND_URL=https://raasta-sathi.vercel.app
+   ALLOWED_ORIGINS=https://raasta-sathi.vercel.app,https://your-render-url.onrender.com
+   ```
+   
+   Optional (if using):
+   ```
+   CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+   CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+   EMAIL_HOST=your_email_host
+   EMAIL_PORT=587
+   EMAIL_USER=your_email_user
+   EMAIL_PASS=your_email_password
+   GEMINI_API_KEY=your_gemini_api_key
+   ```
+
+4. **Deploy**
+   - Click "Create Web Service"
+   - Render will automatically build and deploy your application
+   - Your API will be available at: `https://your-service-name.onrender.com`
+
+5. **Update Frontend API URL**
+   - Update `VITE_API_URL` in your frontend `.env` to point to your Render URL
+   - Example: `VITE_API_URL=https://your-service-name.onrender.com/api`
+
+### Alternative: Using render.yaml
+If you have a `render.yaml` file in your repository, Render can automatically configure your service:
+- Push the `render.yaml` file to your repository
+- In Render dashboard, select "Apply render.yaml" when creating the service
+- Set the environment variables marked as `sync: false` in the dashboard
+
 ### Recommended Hosting
 - **Database**: MongoDB Atlas
-- **API**: Heroku, Railway, or DigitalOcean
+- **API**: Render, Heroku, Railway, or DigitalOcean
 - **File Storage**: Cloudinary (for images)
+- **Frontend**: Vercel, Netlify, or Render
 
 ## Contributing
 
