@@ -244,30 +244,50 @@ export function ReportPage() {
       
       let generatedDescription;
       
-      if (photos.length > 0) {
-        // Generate description with photo analysis
-        generatedDescription = await generateTrafficReportDescriptionWithPhoto(
-          reportTypeLabel,
-          location,
-          severity,
-          photos[0] // Use first photo for analysis
-        );
-      } else {
-        // Generate description without photo
-        generatedDescription = await generateTrafficReportDescription(
-          reportTypeLabel,
-          location,
-          severity
-        );
+      try {
+        if (photos.length > 0) {
+          // Generate description with photo analysis
+          generatedDescription = await generateTrafficReportDescriptionWithPhoto(
+            reportTypeLabel,
+            location,
+            severity,
+            photos[0] // Use first photo for analysis
+          );
+        } else {
+          // Generate description without photo
+          generatedDescription = await generateTrafficReportDescription(
+            reportTypeLabel,
+            location,
+            severity
+          );
+        }
+        
+        // Check if we got a valid description
+        if (!generatedDescription || generatedDescription.trim().length === 0) {
+          throw new Error('Generated description is empty');
+        }
+        
+        setAiGeneratedDescription(generatedDescription);
+        setShowAIOptions(true);
+        
+        // Check if API key is configured to show appropriate message
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey || apiKey === 'your-api-key-here') {
+          toast.success('Description generated (using fallback mode - configure Gemini API key for AI features)');
+        } else {
+          toast.success('AI description generated successfully!');
+        }
+      } catch (genError) {
+        console.error('Error during AI generation:', genError);
+        // The geminiService should have already returned a local fallback description
+        // But if we still get an error, show a helpful message
+        toast.error('AI generation failed. Please check your Gemini API key configuration or write the description manually.');
+        throw genError; // Re-throw to be caught by outer catch
       }
-      
-      setAiGeneratedDescription(generatedDescription);
-      setShowAIOptions(true);
-      toast.success('AI description generated successfully!');
       
     } catch (error) {
       console.error('AI generation error:', error);
-      toast.error(error.message || 'Failed to generate AI description');
+      toast.error(error.message || 'Failed to generate description. Please try again or write manually.');
     } finally {
       setIsGeneratingAI(false);
     }

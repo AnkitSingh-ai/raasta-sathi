@@ -865,7 +865,7 @@ export function HomePage() {
                   className="group relative bg-white rounded-xl p-2 sm:p-3 shadow-lg border border-slate-200 cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105 flex flex-col overflow-hidden"
                   onClick={() => handleReportClick(report)}
                 >
-                  <div className="absolute inset-0 bg-blue-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-blue-50/50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <div className={`p-2 rounded-lg ${
@@ -975,17 +975,17 @@ export function HomePage() {
                     </div>
                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200 shadow-sm">
                         <div className="grid grid-cols-3 gap-2 mb-2">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-red-600">{report.poll.stillThere}</div>
-                            <div className="text-xs text-slate-600">Still There</div>
+                          <div className="text-center flex flex-col items-center justify-center">
+                            <div className="text-lg font-bold text-red-600">{report.poll?.stillThere || 0}</div>
+                            <div className="text-xs text-slate-600 mt-1">Still There</div>
                           </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-600">{report.poll.resolved}</div>
-                            <div className="text-xs text-slate-600">Resolved</div>
+                          <div className="text-center flex flex-col items-center justify-center">
+                            <div className="text-lg font-bold text-green-600">{report.poll?.resolved || 0}</div>
+                            <div className="text-xs text-slate-600 mt-1">Resolved</div>
                           </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-red-600">{report.poll.notSure}</div>
-                            <div className="text-xs text-slate-600">Fake Report</div>
+                          <div className="text-center flex flex-col items-center justify-center">
+                            <div className="text-lg font-bold text-red-600">{report.poll?.notSure || 0}</div>
+                            <div className="text-xs text-slate-600 mt-1">Fake Report</div>
                           </div>
                         </div>
                       
@@ -1159,7 +1159,7 @@ export function HomePage() {
                     className="group relative bg-gradient-to-br from-green-50 to-blue-50 rounded-xl p-2 sm:p-3 shadow-lg border border-green-200 cursor-pointer hover:shadow-2xl transition-all duration-300 hover:scale-105 overflow-hidden"
                     onClick={() => handleReportClick(report)}
                   >
-                    <div className="absolute inset-0 bg-green-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute inset-0 bg-green-50/50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <div className={`p-2 rounded-lg ${
@@ -1272,17 +1272,17 @@ export function HomePage() {
                       </div>
                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200 shadow-sm">
                         <div className="grid grid-cols-3 gap-2 mb-2">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-red-600">{report.poll.stillThere}</div>
-                            <div className="text-xs text-slate-600">Still There</div>
+                          <div className="text-center flex flex-col items-center justify-center">
+                            <div className="text-lg font-bold text-red-600">{report.poll?.stillThere || 0}</div>
+                            <div className="text-xs text-slate-600 mt-1">Still There</div>
                           </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-600">{report.poll.resolved}</div>
-                            <div className="text-xs text-slate-600">Resolved</div>
+                          <div className="text-center flex flex-col items-center justify-center">
+                            <div className="text-lg font-bold text-green-600">{report.poll?.resolved || 0}</div>
+                            <div className="text-xs text-slate-600 mt-1">Resolved</div>
                           </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-red-600">{report.poll.notSure}</div>
-                            <div className="text-xs text-slate-600">Fake Report</div>
+                          <div className="text-center flex flex-col items-center justify-center">
+                            <div className="text-lg font-bold text-red-600">{report.poll?.notSure || 0}</div>
+                            <div className="text-xs text-slate-600 mt-1">Fake Report</div>
                           </div>
                         </div>
                         

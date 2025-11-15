@@ -93,7 +93,7 @@ This format makes reports easy to read and understand quickly.
 ## Technical Details
 
 ### API Endpoints
-- Uses Gemini 1.5 Flash model for optimal performance
+- Uses Gemini 2.0 Flash Experimental model for optimal performance
 - Handles both text-only and image+text generation
 - Automatic word limit enforcement (250 words max, 1500 characters max)
 - Structured format with clear headings and sections
@@ -104,7 +104,7 @@ This format makes reports easy to read and understand quickly.
 - Manual description option always available
 
 ### Performance
-- Fast generation with Gemini 1.5 Flash
+- Fast generation with Gemini 2.0 Flash Experimental
 - Optimized for mobile and desktop use
 - Minimal API calls (only when requested)
 
