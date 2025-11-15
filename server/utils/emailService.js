@@ -28,10 +28,10 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
-    // Add connection timeout to prevent hanging
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000, // 10 seconds
-    socketTimeout: 10000, // 10 seconds
+    // Add connection timeout - increased for Render's network
+    connectionTimeout: 30000, // 30 seconds (increased for Render)
+    greetingTimeout: 30000, // 30 seconds (increased for Render)
+    socketTimeout: 30000, // 30 seconds (increased for Render)
     // Pool connections for better performance
     pool: true,
     maxConnections: 5,
@@ -124,10 +124,10 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
     
     console.log('📤 Sending email...');
     
-    // Add timeout to email sending (15 seconds max)
+    // Add timeout to email sending - increased for Render (30 seconds max)
     const emailPromise = transporter.sendMail(mailOptions);
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000)
+      setTimeout(() => reject(new Error('Email sending timeout after 30 seconds')), 30000)
     );
     
     const result = await Promise.race([emailPromise, timeoutPromise]);

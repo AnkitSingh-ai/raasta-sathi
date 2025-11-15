@@ -41,6 +41,9 @@ import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 
+// Trust proxy for Render deployment (needed for rate limiting and correct IP detection)
+app.set('trust proxy', 1);
+
 // Comprehensive CORS configuration for all routes
 // Allow configuration via environment variables for deployment platforms (Render, Vercel, etc.)
 // "FRONTEND_URL" is the public URL where the client is hosted (e.g. https://raasta-sathi.vercel.app)
@@ -121,12 +124,15 @@ app.use(compression());
 
 
 // Rate limiting - more lenient for development
+// Configure for Render proxy (trust proxy)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 500, // Increased to 500 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Trust proxy for Render deployment - skip X-Forwarded-For validation
+  validate: false // Disable validation to avoid ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on Render
 });
 
 // Apply rate limiting to all routes except health check
@@ -193,8 +199,6 @@ const connectDB = async () => {
     console.log('   URI:', mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@')); // Hide credentials in log
 
     const conn = await connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000, // 45 seconds
       bufferCommands: true // Enable command buffering while connecting
