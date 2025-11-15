@@ -64,38 +64,42 @@ router.post('/register', validateRegister, validate, async (req, res, next) => {
       emailOTPExpires
     });
 
-    // Send OTP email asynchronously (non-blocking)
-    // Don't await - send response immediately and handle email in background
-    sendOTPEmail(email, emailOTP, 'verification')
-      .then((emailSent) => {
-        if (!emailSent) {
-          console.error('Failed to send verification email to:', email);
-          // Don't remove temp registration - user can still use OTP if they have it
-        } else {
-          console.log('Verification email sent successfully to:', email);
-        }
-      })
-      .catch((error) => {
-        console.error('Error sending verification email:', error);
-        // Log error but don't block user - they can request resend if needed
-      });
+    // Send OTP email and wait for it (blocking) to ensure it's sent
+    // This way we can catch errors and provide better feedback
+    let emailSent = false;
+    let emailError = null;
+    
+    try {
+      emailSent = await sendOTPEmail(email, emailOTP, 'verification');
+      if (emailSent) {
+        console.log('✅ Verification email sent successfully to:', email);
+      } else {
+        console.error('❌ Failed to send verification email to:', email);
+        emailError = 'Email sending failed, but OTP is available in server console';
+      }
+    } catch (error) {
+      console.error('❌ Error sending verification email:', error);
+      emailError = error.message;
+      // Don't fail the request - OTP is logged to console
+    }
 
-    // Return response immediately without waiting for email
-    // In development mode, include OTP in response for testing
+    // Always include OTP in response for easier testing
     const responseData = {
       status: 'success',
       message: 'Please check your email for verification code to complete registration.',
       data: {
         tempId,
         email,
-        message: 'Account will be created after email verification'
+        message: 'Account will be created after email verification',
+        // Always include OTP in response (check server console if email fails)
+        devOTP: emailOTP
       }
     };
 
-    // Include OTP in development mode for easier testing
-    if (process.env.NODE_ENV === 'development') {
-      responseData.data.devOTP = emailOTP;
-      responseData.message += ' (OTP also logged to server console and included in response for development)';
+    // Add warning if email failed
+    if (!emailSent || emailError) {
+      responseData.message += ' (Check server console for OTP if email not received)';
+      responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
     }
 
     res.status(200).json(responseData);
@@ -347,34 +351,37 @@ router.post('/resend-verification', async (req, res, next) => {
     // Store updated registration data
     storeTempRegistration(email, tempRegistration);
 
-    // Send new OTP email asynchronously (non-blocking)
-    // Don't await - send response immediately and handle email in background
-    sendOTPEmail(email, emailOTP, 'verification')
-      .then((emailSent) => {
-        if (!emailSent) {
-          console.error('Failed to resend verification email to:', email);
-        } else {
-          console.log('Verification email resent successfully to:', email);
-        }
-      })
-      .catch((error) => {
-        console.error('Error resending verification email:', error);
-        // Log error but don't block user - they can try again if needed
-      });
+    // Send new OTP email and wait for it (blocking) to ensure it's sent
+    let emailSent = false;
+    let emailError = null;
+    
+    try {
+      emailSent = await sendOTPEmail(email, emailOTP, 'verification');
+      if (emailSent) {
+        console.log('✅ Verification email resent successfully to:', email);
+      } else {
+        console.error('❌ Failed to resend verification email to:', email);
+        emailError = 'Email sending failed, but OTP is available in server console';
+      }
+    } catch (error) {
+      console.error('❌ Error resending verification email:', error);
+      emailError = error.message;
+    }
 
-    // Return response immediately without waiting for email
-    // In development mode, include OTP in response for testing
+    // Always include OTP in response for easier testing
     const responseData = {
       status: 'success',
-      message: 'New verification code sent successfully! Please check your email.'
+      message: 'New verification code sent successfully! Please check your email.',
+      data: {
+        // Always include OTP in response (check server console if email fails)
+        devOTP: emailOTP
+      }
     };
 
-    // Include OTP in development mode for easier testing
-    if (process.env.NODE_ENV === 'development') {
-      responseData.data = {
-        devOTP: emailOTP
-      };
-      responseData.message += ' (OTP also logged to server console and included in response for development)';
+    // Add warning if email failed
+    if (!emailSent || emailError) {
+      responseData.message += ' (Check server console for OTP if email not received)';
+      responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
     }
 
     res.status(200).json(responseData);
@@ -408,34 +415,39 @@ router.post('/forgot-password', async (req, res, next) => {
     user.passwordResetOTPExpires = passwordResetOTPExpires;
     await user.save();
 
-    // Send OTP email asynchronously (non-blocking)
-    // Don't await - send response immediately and handle email in background
-    sendOTPEmail(email, passwordResetOTP, 'password-reset')
-      .then((emailSent) => {
-        if (!emailSent) {
-          console.error('Failed to send password reset email to:', email);
-        } else {
-          console.log('Password reset email sent successfully to:', email);
-        }
-      })
-      .catch((error) => {
-        console.error('Error sending password reset email:', error);
-        // Log error but don't block user - they can request resend if needed
-      });
+    // Send OTP email and wait for it (blocking) to ensure it's sent
+    // This way we can catch errors and provide better feedback
+    let emailSent = false;
+    let emailError = null;
+    
+    try {
+      emailSent = await sendOTPEmail(email, passwordResetOTP, 'password-reset');
+      if (emailSent) {
+        console.log('✅ Password reset email sent successfully to:', email);
+      } else {
+        console.error('❌ Failed to send password reset email to:', email);
+        emailError = 'Email sending failed, but OTP is available in server console';
+      }
+    } catch (error) {
+      console.error('❌ Error sending password reset email:', error);
+      emailError = error.message;
+      // Don't fail the request - OTP is logged to console
+    }
 
-    // Return response immediately without waiting for email
-    // In development mode, include OTP in response for testing
+    // Always include OTP in response for easier testing
     const responseData = {
       status: 'success',
-      message: 'Password reset code sent to your email!'
+      message: 'Password reset code sent to your email!',
+      data: {
+        // Always include OTP in response (check server console if email fails)
+        devOTP: passwordResetOTP
+      }
     };
 
-    // Include OTP in development mode for easier testing
-    if (process.env.NODE_ENV === 'development') {
-      responseData.data = {
-        devOTP: passwordResetOTP
-      };
-      responseData.message += ' (OTP also logged to server console and included in response for development)';
+    // Add warning if email failed
+    if (!emailSent || emailError) {
+      responseData.message += ' (Check server console for OTP if email not received)';
+      responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
     }
 
     res.status(200).json(responseData);

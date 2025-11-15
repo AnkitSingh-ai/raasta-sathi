@@ -45,20 +45,18 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
     const emailType = type === 'verification' ? 'Email Verification' : 'Password Reset';
     console.log(`📧 Attempting to send ${emailType} OTP to:`, email);
     
-    // In development mode or if email not configured, log OTP to console
-    if (process.env.NODE_ENV === 'development' || !isEmailConfigured()) {
-      console.log('\n' + '='.repeat(60));
-      console.log(`🔐 ${emailType.toUpperCase()} OTP FOR ${email.toUpperCase()}`);
-      console.log('='.repeat(60));
-      console.log(`📝 OTP Code: ${otp}`);
-      console.log(`⏰ This code expires in 10 minutes`);
-      console.log('='.repeat(60) + '\n');
-      
-      // If email is not configured, return true (OTP logged to console)
-      if (!isEmailConfigured()) {
-        console.warn('⚠️  Email service not configured. OTP logged above for development.');
-        return true;
-      }
+    // ALWAYS log OTP to console for debugging (regardless of mode)
+    console.log('\n' + '='.repeat(60));
+    console.log(`🔐 ${emailType.toUpperCase()} OTP FOR ${email.toUpperCase()}`);
+    console.log('='.repeat(60));
+    console.log(`📝 OTP Code: ${otp}`);
+    console.log(`⏰ This code expires in 10 minutes`);
+    console.log('='.repeat(60) + '\n');
+    
+    // If email is not configured, return true (OTP logged to console)
+    if (!isEmailConfigured()) {
+      console.warn('⚠️  Email service not configured. OTP logged above. Check server console for OTP.');
+      return true;
     }
     
     const transporter = createTransporter();
