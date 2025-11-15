@@ -83,23 +83,33 @@ router.post('/register', validateRegister, validate, async (req, res, next) => {
       // Don't fail the request - OTP is logged to console
     }
 
-    // Always include OTP in response for easier testing
+    // Prepare response data
     const responseData = {
       status: 'success',
       message: 'Please check your email for verification code to complete registration.',
       data: {
         tempId,
         email,
-        message: 'Account will be created after email verification',
-        // Always include OTP in response (check server console if email fails)
-        devOTP: emailOTP
+        message: 'Account will be created after email verification'
       }
     };
 
+    // In development mode, include OTP in response for testing
+    // In production, OTP is only in server logs (Render logs) for security
+    if (process.env.NODE_ENV === 'development') {
+      responseData.data.devOTP = emailOTP;
+      responseData.message += ' (OTP also in response for development)';
+    }
+
     // Add warning if email failed
     if (!emailSent || emailError) {
-      responseData.message += ' (Check server console for OTP if email not received)';
-      responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
+      if (process.env.NODE_ENV === 'production') {
+        responseData.message += ' (If email not received, check Render logs for OTP)';
+        responseData.data.emailWarning = 'Email may not have been sent. Check Render dashboard logs for OTP code.';
+      } else {
+        responseData.message += ' (Check server console for OTP if email not received)';
+        responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
+      }
     }
 
     res.status(200).json(responseData);
@@ -368,20 +378,29 @@ router.post('/resend-verification', async (req, res, next) => {
       emailError = error.message;
     }
 
-    // Always include OTP in response for easier testing
+    // Prepare response data
     const responseData = {
       status: 'success',
       message: 'New verification code sent successfully! Please check your email.',
-      data: {
-        // Always include OTP in response (check server console if email fails)
-        devOTP: emailOTP
-      }
+      data: {}
     };
+
+    // In development mode, include OTP in response for testing
+    // In production, OTP is only in server logs (Render logs) for security
+    if (process.env.NODE_ENV === 'development') {
+      responseData.data.devOTP = emailOTP;
+      responseData.message += ' (OTP also in response for development)';
+    }
 
     // Add warning if email failed
     if (!emailSent || emailError) {
-      responseData.message += ' (Check server console for OTP if email not received)';
-      responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
+      if (process.env.NODE_ENV === 'production') {
+        responseData.message += ' (If email not received, check Render logs for OTP)';
+        responseData.data.emailWarning = 'Email may not have been sent. Check Render dashboard logs for OTP code.';
+      } else {
+        responseData.message += ' (Check server console for OTP if email not received)';
+        responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
+      }
     }
 
     res.status(200).json(responseData);
@@ -434,20 +453,29 @@ router.post('/forgot-password', async (req, res, next) => {
       // Don't fail the request - OTP is logged to console
     }
 
-    // Always include OTP in response for easier testing
+    // Prepare response data
     const responseData = {
       status: 'success',
       message: 'Password reset code sent to your email!',
-      data: {
-        // Always include OTP in response (check server console if email fails)
-        devOTP: passwordResetOTP
-      }
+      data: {}
     };
+
+    // In development mode, include OTP in response for testing
+    // In production, OTP is only in server logs (Render logs) for security
+    if (process.env.NODE_ENV === 'development') {
+      responseData.data.devOTP = passwordResetOTP;
+      responseData.message += ' (OTP also in response for development)';
+    }
 
     // Add warning if email failed
     if (!emailSent || emailError) {
-      responseData.message += ' (Check server console for OTP if email not received)';
-      responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
+      if (process.env.NODE_ENV === 'production') {
+        responseData.message += ' (If email not received, check Render logs for OTP)';
+        responseData.data.emailWarning = 'Email may not have been sent. Check Render dashboard logs for OTP code.';
+      } else {
+        responseData.message += ' (Check server console for OTP if email not received)';
+        responseData.data.emailWarning = emailError || 'Email may not have been sent. OTP is in server console.';
+      }
     }
 
     res.status(200).json(responseData);

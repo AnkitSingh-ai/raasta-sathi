@@ -180,12 +180,18 @@ The API is designed to work with any MongoDB hosting service. Simply update the 
    CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
    CLOUDINARY_API_KEY=your_cloudinary_api_key
    CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-   EMAIL_HOST=your_email_host
+   EMAIL_HOST=smtp.gmail.com
    EMAIL_PORT=587
-   EMAIL_USER=your_email_user
-   EMAIL_PASS=your_email_password
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_gmail_app_password
    GEMINI_API_KEY=your_gemini_api_key
    ```
+
+   **Important for Email/OTP:**
+   - For Gmail: Enable 2FA and generate an App Password
+   - OTPs are always logged to Render logs (even if email fails)
+   - To view OTPs: Go to Render Dashboard → Your Service → Logs tab
+   - Search for "OTP Code" in the logs to find verification codes
 
 4. **Deploy**
    - Click "Create Web Service"

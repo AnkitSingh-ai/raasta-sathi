@@ -143,12 +143,10 @@ export const sendOTPEmail = async (email, otp, type = 'verification') => {
       response: error.response
     });
     
-    // In development, still return true if email fails (OTP was logged to console)
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('⚠️  Email failed but continuing in development mode. Check OTP in console above.');
-      return true;
-    }
-    
+    // In production, still log OTP to console (Render logs) even if email fails
+    // This allows access to OTP via Render dashboard logs
+    console.warn('⚠️  Email failed but OTP is logged above. Check Render logs for OTP.');
+    // Return false to indicate email failed, but OTP is still available in logs
     return false;
   }
 };
